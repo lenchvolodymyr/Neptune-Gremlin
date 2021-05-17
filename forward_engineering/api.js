@@ -1,16 +1,43 @@
+const _ = require('lodash');
+
+const DEFAULT_INDENT = '    ';
+let graphName = 'g';
+
 module.exports = {
 	generateContainerScript(data, logger, cb) {
-		let { collections, relationships, jsonData } = data;
+		let { collections, relationships, jsonData, containerData } = data;
 		logger.clear();
 		try {
+			let resultScript = '';
+			const traversalSource = _.get(containerData, [0, 'traversalSource'], 'g');
+			graphName = transformToValidGremlinName(traversalSource);
 			collections = collections.map(JSON.parse);
 			relationships = relationships.map(JSON.parse);
+			const indexesData = _.get(containerData, [1, 'indexes'], [])
 
-			const createScript = this.generateCreateBatch(collections, relationships, jsonData);
-			const constraints = this.generateConstraints(collections, relationships);
-			const indexes = this.getIndexes(collections);
+			const variables = _.get(containerData, [0, 'graphVariables'], [])
+			const variablesScript = generateVariables(variables);
+			const verticesScript = generateVertices(collections, jsonData);
+			const edgesScript = generateEdges(collections, relationships, jsonData);
+			const indexesScript = generateIndexes(indexesData);
 
-			cb(null, this.getScript(createScript, constraints, indexes));
+			if (variablesScript) {
+				resultScript += variablesScript + '\n';
+			}
+
+			if (verticesScript) {
+				resultScript += verticesScript;
+			}
+
+			if (edgesScript) {
+				resultScript += '\n\n' + edgesScript;
+			}
+
+			if (indexesScript) {
+				resultScript += '\n\n' + indexesScript;
+			}
+
+			cb(null, resultScript);
 		} catch(e) {
 			logger.log('error', { message: e.message, stack: e.stack }, 'Forward-Engineering Error');
 			setTimeout(() => {
@@ -18,328 +45,409 @@ module.exports = {
 			}, 150);
 			return;
 		}
-	},
-
-	getScript(createScript, constraints, indexes) {
-		const getTransaction = (script) => ':begin\n' + script + ';\n:commit\n';
-		let script = getTransaction(
-			'// cat <path to cypher file> | ./bin/cypher-shell -a <address> -u <user> -p <password>\n\n' +
-			createScript
-		);
-
-		if (Array.isArray(constraints) && constraints.length) {
-			script += getTransaction(constraints.join(';\n'));
-		}
-
-		if (Array.isArray(indexes) && indexes.length) {
-			script += getTransaction(indexes.join(';\n'));
-		}
-
-		return script;
-	},
-
-	generateCreateBatch(collections, relationships, jsonData) {
-		let createdHash = {};
-
-		let labels = this.createMap(collections, relationships).reduce((batch, branchData) => {
-			let parent = '';
-			let child = '';
-			let relationship = '';
-
-			let parentName = '';
-			let childName = '';
-			let relationshipName = '';
-			
-			let relationshipData = '';
-			let childData = '';
-
-			parentName = branchData.parent.collectionName;
-
-			if (createdHash[parentName]) {
-				parent = `(${screen(parentName).toLowerCase()})`;
-			} else {
-				let parentData = '';
-				if (jsonData[branchData.parent.GUID]) {
-					parentData = ' ' + this.prepareData(jsonData[branchData.parent.GUID], branchData.parent);
-				}
-	
-				parent = `(${screen(parentName).toLowerCase()}:${screen(parentName)}${parentData})`;
-				createdHash[parentName] = true;
-			}
-
-			if (branchData.relationship && branchData.child) {
-				relationshipName = branchData.relationship.name;			
-				if (branchData.relationship && jsonData[branchData.relationship.GUID]) {
-					relationshipData = ' ' + this.prepareData(jsonData[branchData.relationship.GUID], branchData.relationship);
-				}
-				relationship = `[:${screen(relationshipName)}${relationshipData}]`;
-
-				childName = branchData.child.collectionName;
-				if (createdHash[childName]) {
-					child = `(${screen(childName).toLowerCase()})`;
-				} else {
-					if (branchData.child && jsonData[branchData.child.GUID]) {
-						childData = ' ' + this.prepareData(jsonData[branchData.child.GUID], branchData.child);
-					}
-					child = `(${screen(childName).toLowerCase()}:${screen(childName)}${childData})`;
-					createdHash[childName] = true;
-				}
-
-				batch.push(`${parent}-${relationship}->${child}`);
-
-				if (branchData.bidirectional) {
-					batch.push(`(${screen(childName).toLowerCase()})-${relationship}->(${screen(parentName).toLowerCase()})`);
-				}
-			} else {
-				batch.push(parent);
-			}
-
-			return batch;
-		}, []).join(',\n');
-
-		let script = `CREATE ${labels}`;
-
-		if (Object.keys(createdHash).length) {
-			script +=  ` RETURN ${Object.keys(createdHash).map(screen).join(',').toLowerCase()}`;
-		}
-
-		return script;
-	},
-
-	prepareData(serializedData, schema) {
-		const data = JSON.parse(serializedData);
-		return '{ ' + Object.keys(data).reduce((result, field) => {
-			if (Object(data[field]) === data[field] && !Array.isArray(data[field])) {
-				result.push(`${screen(field)}: ${this.getObjectValueBySchema(data[field], schema.properties[field])}`);
-			} else if (Array.isArray(data[field])) {
-				result.push(`${screen(field)}: [ ${this.getArrayValueBySchema(
-					data[field],
-					schema.properties[field].items
-				).join(', ')} ]`);
-			} else {
-				result.push(`${screen(field)}: ${JSON.stringify(data[field])}`);
-			}
-
-			return result;
-		}, []).join(', ') + ' }';
-	},
-
-	createMap(collections, relationships) {
-		let relationshipMap = {};
-		let hasRelationship = {};
-		let collectionMap = {};
-		
-		relationships.forEach(relationship => {
-			if (!relationshipMap[relationship.parentCollection]) {
-				relationshipMap[relationship.parentCollection] = [];
-			}
-			relationshipMap[relationship.parentCollection].push(relationship);
-
-			hasRelationship[relationship.parentCollection] = true;
-			hasRelationship[relationship.childCollection] = true;
-		});
-
-		return collections.map(collection => {
-			collectionMap[collection.GUID] = collection;
-			return collection;
-		}).reduce((map, parent) => {
-			const relationships = relationshipMap[parent.GUID] || null;
-
-			if (relationships) {
-				relationships.forEach(relationship => {
-					const child = collectionMap[relationship.childCollection];
-					map.push({
-						parent,
-						relationship,
-						child,
-						bidirectional: (relationship && relationship.customProperties && relationship.customProperties.biDirectional && child.GUID !== parent.GUID)
-					});
-				});
-			} else if (!hasRelationship[parent.GUID]) {
-				map.push({
-					parent,
-					relationship: null,
-					child: null,
-					bidirectional: false
-				});
-			}
-
-			return map;
-		}, []);
-	},
-
-	toCypherJson(data) {
-		if (Object(data) === data && !Array.isArray(data)) {
-			return '{ ' + Object.keys(data).reduce((result, field) => {
-				result.push(`${screen(field)}: ${this.toCypherJson(data[field])}`);
-				return result;
-			}, []).join(', ') + ' }';
-		} else {
-			return JSON.stringify(data);
-		}
-	},
-
-	generateConstraints(collections, relationships) {
-		let result = [];
-
-		collections.forEach(collection => {
-			if (collection.constraint && Array.isArray(collection.constraint)) {
-				collection.constraint.forEach(constraint => {
-					const nodeKeyConstraint = this.getNodeKeyConstraint(collection, constraint);
-					if (nodeKeyConstraint) {
-						result.push(nodeKeyConstraint);
-					}
-				});
-			}
-			if (Array.isArray(collection.required)) {
-				collection.required.forEach(fieldName => {
-					if (fieldName) {
-						result.push(this.getExistsConstraint(collection.collectionName, fieldName));
-					}
-				});
-			}
-			if (collection.properties) {
-				Object.keys(collection.properties).forEach(fieldName => {
-					if (collection.properties[fieldName].unique) {
-						result.push(this.getUniqeConstraint(collection.collectionName, fieldName));
-					}
-				});
-			}
-		});
-
-		relationships.forEach(relationship => {
-			if (Array.isArray(relationship.required)) {
-				relationship.required.forEach(fieldName => {
-					if (fieldName) {
-						result.push(this.getExistsConstraint(relationship.name, fieldName));
-					}
-				});
-			}
-
-			if (relationship.properties) {
-				Object.keys(relationship.properties).forEach(fieldName => {
-					if (relationship.properties[fieldName].unique) {
-						result.push(this.getUniqeConstraint(relationship.name, fieldName));
-					}
-				});
-			}
-		});
-
-		return result;		
-	},
-
-	getNodeKeyConstraint(collection, constraint) {
-		let keys = [];
-		if (constraint.compositeNodeKey) {
-			keys = this.findFields(collection, constraint.compositeNodeKey.map(key => key.keyId));
-			if (Array.isArray(keys) && keys.length) {
-				const labelName = collection.collectionName;
-				const varLabelName = collection.collectionName.toLowerCase();
-
-				return `CREATE CONSTRAINT ON (${screen(varLabelName)}:${screen(labelName)}) ASSERT (${keys.map(key => `${screen(varLabelName)}.${screen(key)}`).join(', ')}) IS NODE KEY`;
-			}
-		}
-	},
-
-	getExistsConstraint(labelName, fieldName) {
-		const varLabelName = labelName.toLowerCase();
-
-		return `CREATE CONSTRAINT ON (${screen(varLabelName)}:${screen(labelName)}) ASSERT exists(${screen(varLabelName)}.${screen(fieldName)})`;
-	},
-
-	getUniqeConstraint(labelName, fieldName) {
-		const varLabelName = labelName.toLowerCase();
-
-		return `CREATE CONSTRAINT ON (${screen(varLabelName)}:${screen(labelName)}) ASSERT ${screen(varLabelName)}.${screen(fieldName)} IS UNIQUE`;
-	},
-
-	findFields(collection, ids) {
-		let fields = [];
-		let properties;
-
-		if (collection.items) {
-			if (Array.isArray(collection.items)) {
-				properties = collection.items;
-			} else {
-				properties = [collection.items];
-			}
-		} else {
-			properties = collection.properties;
-		}
-
-		for (let fieldName in properties) {
-			const field = properties[fieldName];
-			const indexId = ids.indexOf(field.GUID);
-			if (indexId !== -1) {
-				if (fields.indexOf(fieldName) === -1) {
-					fields.push(fieldName);
-				}
-				ids.splice(indexId, 1);
-			}
-
-			if (field.properties || field.items) {
-				const fieldsAreFound = this.findFields(field, ids);
-
-				if (fieldsAreFound.length && fields.indexOf(field.name) === -1) {
-					fields.push(field.name);
-				}
-			}
-
-			if (!ids.length) {
-				return fields;
-			}
-
-		}
-
-		return fields;
-	},
-
-	getIndexes(collections) {
-		let result = [];
-		collections.forEach(collection => {
-			if (collection.index) {
-				collection.index.forEach(index => {
-					if (index.key) {
-						const fields = this.findFields(collection, index.key.map(key => key.keyId));
-						if (fields.length) {
-							const indexScript = this.getIndex(collection.collectionName, fields);
-							result.push(indexScript);
-						}
-					}
-				});
-			}
-		});
-		return result;
-	},
-
-	getIndex(collectionName, fields) {
-		return `CREATE INDEX ON :${screen(collectionName)}(${fields.map(screen).join(', ')})`;
-	},
-
-	getObjectValueBySchema(data, fieldSchema) {
-		if (fieldSchema && fieldSchema.type === 'spatial') {
-			if (fieldSchema.mode === 'point') {
-				return `point(${this.toCypherJson(data)})`;
-			}
-		}
-
-		return `apoc.convert.toJson(${this.toCypherJson(data)})`;
-	},
-
-	getArrayValueBySchema(data, arraySchema) {
-		return data.map((item, i) => {
-			if (Object(item) === item && !Array.isArray(item)) {
-				return this.getObjectValueBySchema(
-					item, 
-					Array.isArray(arraySchema) ? arraySchema[i] : arraySchema
-				);
-			} else if (Array.isArray(item)) {
-				return `[ ${ this.getArrayValueBySchema(item, (Array.isArray(arraySchema) ? arraySchema[i] : arraySchema).items).join(', ')} ]`;
-			} else {
-				return JSON.stringify(item);
-			}
-		});
 	}
 };
 
-const screen = (s) => `\`${s}\``;
+const generateVariables = variables => {
+	return variables.reduce((script, variable) => {
+		const key = variable.graphVariableKey;
+		const value = variable.GraphVariableValue || '';
+		if (!key) {
+			return script;
+		}
+		try {
+			const parsedValue = JSON.parse(value);
+			if (!_.isString(parsedValue)) {
+				return script + `graph.variables().set("${key}", ${value});\n`;
+			}
+
+			return script + `graph.variables().set("${key}", "${value}");\n`;
+		} catch (e) {
+			return script + `graph.variables().set("${key}", "${value}");\n`
+		}
+	}, '');
+};
+
+const generateVertex = (collection, vertexData) => {
+	const vertexName = transformToValidGremlinName(collection.collectionName);
+	const propertiesScript = addPropertiesScript(collection, vertexData);
+
+	return `${graphName}.addV(${JSON.stringify(vertexName)})${propertiesScript}`;
+};
+
+const generateVertices = (collections, jsonData) => {
+	const vertices = collections.map(collection => {
+		const vertexData = JSON.parse(jsonData[collection.GUID]);
+
+		return generateVertex(collection, vertexData)
+	});	
+
+	const script = vertices.join(';\n\n');
+	if (!script) {
+		return '';
+	}
+
+	return script + ';';
+}
+
+const generateEdge = (from, to, relationship, edgeData) => {
+	const edgeName = transformToValidGremlinName(relationship.name);
+	const propertiesScript = addPropertiesScript(relationship, edgeData);
+
+	return `${graphName}.addE(${JSON.stringify(edgeName)}).\n${DEFAULT_INDENT}from(${from}).\n${DEFAULT_INDENT}to(${to})${propertiesScript}`;
+};
+
+const getVertexVariableScript = vertexName => `${graphName}.V().hasLabel(${JSON.stringify(vertexName)}).next()`;
+
+const generateEdges = (collections, relationships, jsonData) => {
+	const edges = relationships.reduce((edges, relationship) => {
+		const parentCollection = collections.find(collection => collection.GUID === relationship.parentCollection);
+		const childCollection = collections.find(collection => collection.GUID === relationship.childCollection);
+		if (!parentCollection || !childCollection) {
+			return edges;
+		}
+		const from = transformToValidGremlinName(parentCollection.collectionName);
+		const to = transformToValidGremlinName(childCollection.collectionName);
+		const edgeData = JSON.parse(jsonData[relationship.GUID]);
+
+		return edges.concat(generateEdge(getVertexVariableScript(from), getVertexVariableScript(to), relationship, edgeData));
+	}, []);
+
+	if (_.isEmpty(edges)) {
+		return '';
+	}
+
+	return edges.join(';\n\n') + ';';
+}
+
+const getDefaultMetaPropertyValue = type => {
+	switch(type) {
+		case 'map': case 'list':
+			return '[]';
+		case 'set':
+			return '[].toSet()';
+		case 'string':
+			return '"Lorem"';
+		case 'number':
+			return '1';
+		case 'date':
+			return 'new Date()';
+		case 'timestamp':
+			return 'new java.sql.Timestamp(1234567890123)';
+		case 'uuid':
+			return 'UUID.randomUUID()';
+		case 'boolean':
+			return 'true';
+	}
+
+	return '"Lorem"';
+};
+
+const handleMetaProperties = metaProperties => {
+	if (!metaProperties){
+		return '';
+	}
+
+	const metaPropertiesFlatList = metaProperties.reduce((list, property) => {
+		if (!property.metaPropName) {
+			return list;
+		}
+
+		const sample = _.isUndefined(property.metaPropSample) ? getDefaultMetaPropertyValue(property.metaPropType) : property.metaPropSample;
+
+		return list.concat(
+			JSON.stringify(property.metaPropName), 
+			sample
+		);
+	}, []);
+
+	return metaPropertiesFlatList.join(', ');
+};
+
+const handleMultiProperty = (property, name, jsonData) => {
+	let properties = _.get(property, 'items', []);
+	if (!_.isArray(properties)) {
+		properties = [properties];
+	}
+	if (properties.length === 1) {
+		properties = [ ...properties, ...properties];
+		jsonData.push(_.first(jsonData));
+	}
+
+	const type = property.childType || property.type;
+	const nameString = JSON.stringify(name);
+	const propertiesValues = properties.map((property, index) => convertPropertyValue(property, 2, type, jsonData[index]));
+	const metaProperties = properties.map(property => {
+		const metaPropertiesScript = handleMetaProperties(property.metaProperties);
+		if (_.isEmpty(metaPropertiesScript)) {
+			return '';
+		}
+
+		return ', ' + metaPropertiesScript;
+	});
+	const cardinalities = properties.map(childProperty => childProperty.propCardinality || property.propCardinality);
+
+	return propertiesValues.reduce((script, valueScript, index) => 
+		`${script}.\n${DEFAULT_INDENT}property(${cardinalities[index]}, ${nameString}, ${valueScript}${metaProperties[index]})`
+	, '');
+};
+
+const getChoices = item => {
+	const availableChoices = ['oneOf', 'allOf', 'anyOf'];
+
+	const choices = availableChoices.reduce((choices, choiceType) => {
+		const choice = _.get(item, choiceType, []);
+		if (_.isEmpty(choice)) {
+			return choices;
+		}
+
+		return Object.assign({}, choices, {
+			[choiceType]: {
+				choice: _.get(item, choiceType, []),
+				meta: _.get(item, `${choiceType}_meta`, {}),
+			}
+		});
+	}, {});
+	
+	if (_.isEmpty(choices)) {
+		return [];
+	}
+
+	const choicePropertiesData = Object.keys(choices).map(choiceType => {
+		const choiceData = choices[choiceType];
+		const index = _.get(choiceData, 'meta.index');
+
+		return {
+			properties: _.first(choiceData.choice).properties || {},
+			index
+		};
+	});
+
+	const sortedChoices = choicePropertiesData.sort((a, b) => a.index - b.index);
+
+	return sortedChoices.map((choiceData, index, choicesData) => {
+		if (index === 0) {
+			return choiceData;
+		}
+
+		const additionalPropertiesCount = choicesData.reduce((count, choiceData, choiceDataIndex) => {
+			if (choiceDataIndex >= index) {
+				return count;
+			}
+
+			return count + Object.keys(choiceData.properties).length - 1;
+		}, 0);
+
+		return {
+			properties: choiceData.properties,
+			index: choiceData.index + additionalPropertiesCount
+		};
+	});
+};
+
+const resolveArrayChoices = (choices, items) => {
+	if (_.isEmpty(choices)) {
+		return items;
+	}
+	
+	const choiceItems = choices.reduce((choiceItems, choice) => {
+		const choiceProperties = _.get(choice, 'properties', {});
+
+		return choiceItems.concat(Object.keys(choiceProperties).map(key => choiceProperties[key]));
+	}, []);
+
+	return [...items, ...choiceItems];
+};
+
+const resolveChoices = (choices, properties) => {
+	if (_.isEmpty(choices)) {
+		return properties;
+	}
+
+	return choices.reduce((sortedProperties, choiceData) => {
+		const choiceProperties = choiceData.properties;
+		const choicePropertiesIndex = choiceData.index;
+		if (_.isEmpty(sortedProperties)) {
+			return choiceProperties;
+		}
+
+		if (
+			_.isUndefined(choicePropertiesIndex) ||
+			Object.keys(sortedProperties).length <= choicePropertiesIndex
+		) {
+			return Object.assign({}, sortedProperties, choiceProperties);
+		}
+
+		return Object.keys(sortedProperties).reduce((result, propertyKey, index) => {
+			if (index !== choicePropertiesIndex) {
+				return Object.assign({}, result, {
+					[propertyKey] : sortedProperties[propertyKey]
+				});
+			}
+
+			return Object.assign({}, result, choiceProperties, {
+				[propertyKey] : sortedProperties[propertyKey]
+			});
+		}, {});
+	}, properties || {});
+};
+
+const addPropertiesScript = (collection, vertexData) => {
+	const properties = _.get(collection, 'properties', {});
+
+	const choices = getChoices(collection);
+	const propertiesWithResolvedChoices = resolveChoices(choices, properties);
+
+	if (_.isEmpty(propertiesWithResolvedChoices)) {
+		return '';
+	}
+
+	return Object.keys(propertiesWithResolvedChoices).reduce((script, name) => {
+		const property = propertiesWithResolvedChoices[name];
+		const type = property.childType || property.type;
+		let metaPropertiesScript = handleMetaProperties(property.metaProperties);
+		if (!_.isEmpty(metaPropertiesScript)) {
+			metaPropertiesScript = ', ' + metaPropertiesScript;
+		}
+		if (type === 'multi-property') {
+			return script + `${handleMultiProperty(property, name, vertexData[name])}`;
+		}
+		const valueScript = convertPropertyValue(property, 2, type, vertexData[name]);
+
+		return script + `.\n${DEFAULT_INDENT}property(${property.propCardinality}, ${JSON.stringify(name)}, ${valueScript}${metaPropertiesScript})`;
+	}, '');
+};
+
+const isGraphSONType = type => ['map', 'set', 'list', 'timestamp', 'date', 'uuid', 'number'].includes(type);
+
+const convertMap = (property, level, value) => {
+	const choices = getChoices(property);
+	const properties = resolveChoices(choices, _.get(property, 'properties', {}));
+
+	const childProperties = Object.keys(properties).map(name => ({
+		name,
+		property: properties[name]
+	}));
+	const indent = _.range(0, level).reduce(indent => indent + DEFAULT_INDENT, '');
+	const previousIndent = _.range(0, level - 1).reduce(indent => indent + DEFAULT_INDENT, '');
+
+	let mapValue = childProperties.reduce((result, {name, property}) => {
+		const childValue = value[name];
+		const type = property.childType || property.type;
+
+		return result + `, \n${indent}${JSON.stringify(name)}: ${convertPropertyValue(property, level + 1, type, childValue)}`;
+	}, '');
+
+	if (mapValue.slice(0, 2) === ', ') {
+		mapValue = mapValue.slice(2);
+	}
+
+	return `[${mapValue}\n${previousIndent}]`;
+};
+
+const convertList = (property, level, value) => {
+	let items = _.get(property, 'items', []);
+	if (!_.isArray(items)) {
+		items = [items];
+	}
+
+	const choices = getChoices(property);
+	items = resolveArrayChoices(choices, items);
+
+	let listValue = items.reduce((result, item, index) => {
+		const childValue = value[index];
+		const type = item.childType || item.type;
+
+		return result + `, ${convertPropertyValue(item, level + 1, type, childValue)}`;
+	}, '');
+
+	if (listValue.slice(0, 2) === ', ') {
+		listValue = listValue.slice(2)
+	}
+
+	return `[${listValue}]`;
+};
+
+const convertSet = (property, level, value) => {
+	const setValue = convertList(property, level, value);
+
+	return `${setValue}.toSet()`;
+};
+
+const convertTimestamp = value => `new java.sql.Timestamp(${JSON.stringify(value)})`;
+
+const convertDate = value => `new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX").parse(${JSON.stringify(value)})`;
+
+const convertUUID = value => `UUID.fromString(${JSON.stringify(value)})`;
+
+const convertNumber = (property, value) => {
+	const mode = property.mode;
+	const numberValue = JSON.stringify(value);
+
+	switch(mode) {
+		case 'double':
+			return `${numberValue}d`;
+		case 'float':
+			return `${numberValue}f`;
+		case 'long':
+			return `${numberValue}l`;
+	}
+
+	return numberValue;
+};
+
+const convertPropertyValue = (property, level, type, value) => {
+	if (!isGraphSONType(type)) {
+		return JSON.stringify(value);
+	}
+
+	switch(type) {
+		case 'uuid':
+			return convertUUID(value);
+		case 'map':
+			return convertMap(property, level, value);
+		case 'set':
+			return convertSet(property, level, value);
+		case 'list':
+			return convertList(property, level, value);
+		case 'timestamp':
+			return convertTimestamp(value);
+		case 'date':
+			return convertDate(value);
+		case 'number':
+			return convertNumber(property, value);
+	}
+
+	return convertMap(property, level, value);
+};
+
+const transformToValidGremlinName = name => {
+	const DEFAULT_NAME = 'New_vertex';
+	const DEFAULT_PREFIX = 'v_';
+
+	if (!name || !_.isString(name)) {
+		return DEFAULT_NAME;
+	}
+
+	const nameWithoutSpecialCharacters = name.replace(/[\s`~!@#%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, '_');
+	const startsFromDigit = nameWithoutSpecialCharacters.match(/^[0-9].*$/);
+
+	if (startsFromDigit) {
+		return `${DEFAULT_PREFIX}_${nameWithoutSpecialCharacters}`;
+	}
+
+	return nameWithoutSpecialCharacters;
+};
+
+const generateIndex = indexData => `graph.createIndex("${indexData.propertyName}", ${indexData.elementType || 'Vertex'})`;
+
+const generateIndexes = indexesData => {
+	const correctIndexes = indexesData.filter(index => index.propertyName);
+	const script = correctIndexes.map(generateIndex).join(';\n');
+
+	if (!script) {
+		return '';
+	}
+
+	return script + ';';
+};

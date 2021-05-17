@@ -20,8 +20,15 @@
 				"inputLabel": "Port",
 				"inputKeyword": "port",
 				"inputType": "numeric",
-				"inputPlaceholder": "7687",
-				"defaultValue": ""
+				"inputPlaceholder": 8182,
+				"defaultValue": 8182
+			},
+			{
+				"inputLabel": "Traversal Source",
+				"inputKeyword": "traversalSource",
+				"inputType": "text",
+				"inputPlaceholder": "g",
+				"defaultValue": "g"
 			}
 		]
 	},
@@ -82,32 +89,11 @@
 				}
 			},
 			{
-				"inputLabel": "Client Certificate",
-				"inputKeyword": "clientCert",
+				"inputLabel": "PFX",
+				"inputKeyword": "pfx",
 				"inputType": "file",
-				"inputPlaceholder": "Client Certificate",
-				"extensions": ["pem", "crt", "key"],
-				"dependency": {
-					"key": "sslType",
-					"value": "TRUST_SERVER_CLIENT_CERTIFICATES"
-				}
-			},
-			{
-				"inputLabel": "Client Private Key",
-				"inputKeyword": "clientPrivateKey",
-				"inputType": "file",
-				"inputPlaceholder": "Client Private Key",
-				"extensions": ["pem", "crt", "key"],
-				"dependency": {
-					"key": "sslType",
-					"value": "TRUST_SERVER_CLIENT_CERTIFICATES"
-				}
-			},
-			{
-				"inputLabel": "Passphrase",
-				"inputKeyword": "passphrase",
-				"inputType": "password",
-				"inputPlaceholder": "Passphrase",
+				"inputPlaceholder": "PFX or PKCS12 encoded private key and certificate chain",
+				"extensions": ["pfx"],
 				"dependency": {
 					"key": "sslType",
 					"value": "TRUST_SERVER_CLIENT_CERTIFICATES"

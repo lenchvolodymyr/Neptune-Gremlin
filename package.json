@@ -1,10 +1,10 @@
 {
     "name": "Neptune-Gremlin",
     "version": "0.0.1",
-    "versionDate": "2019-06-14",
+    "versionDate": "2021-05-17",
     "author": "hackolade",
     "engines": {
-        "hackolade": "3.2.x",
+        "hackolade": "4.2.10",
         "hackoladePlugin": "1.0.0"
     },
     "contributes": {
@@ -15,13 +15,17 @@
 		},
         "features": {
             "jaySchemaHasRequiredPatternField": false,
-            "nestedCollections": false,
+            "nestedCollections": {
+                "isVirtual":true,
+                "hasMultipleParents":true
+            },
             "graphDB": true,
             "relationships": {
                 "connectOnEntityLevel": true,
                 "hasData": true
             },
-            "enableForwardEngineering": true
+            "enableForwardEngineering": true,
+            "enableReverseEngineering": true
         }
     },
     "description": "Hackolade plugin for Amazon Neptune",

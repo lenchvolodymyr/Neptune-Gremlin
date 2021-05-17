@@ -1,7 +1,7 @@
 {
-	"extension": "cypher",
-	"filterName": "Cypher script",
-	"namePrefix": "Cypher Code",
+	"extension": "gremlin",
+	"filterName": "Gremlin script",
+	"namePrefix": "Gremlin",
 	"hasUpdateScript": false,
 	"level": {
 		"container": true,

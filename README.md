@@ -1,5 +1,5 @@
-# Neo4j
-Plugin to enable Neo4j graph database as a target in Hackolade data modeling.
+# Neptun \w Gremlin API
+Plugin to enable Neptun \w Gremlin API graph database as a target in Hackolade data modeling.
 
 <div class="main-content">
 
