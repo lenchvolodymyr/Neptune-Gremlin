@@ -1,126 +1,113 @@
 'use strict';
 
-const async = require('async');
-const _ = require('lodash');
-const gremlinHelper = require('./gremlinHelper');
+const connectionHelper = require('./connectionHelper');
+const queryHelper = require('./queryHelper');
 
 module.exports = {
-	connect: function(connectionInfo, logger, cb){
+	connect: function(connectionInfo, logger){
 		logger.clear();
 		logger.log('info', connectionInfo, 'connectionInfo', connectionInfo.hiddenKeys);
-		gremlinHelper.connect(connectionInfo).then(cb, cb);
+
+		return connectionHelper.connect(connectionInfo);
 	},
 
 	disconnect: function(connectionInfo, cb){
-		gremlinHelper.close();
+		connectionHelper.close();
 		cb();
 	},
 
-	testConnection: function(connectionInfo, logger, cb){
-		this.connect(connectionInfo, logger, error => {
-			if (error) {
-				cb({ message: 'Connection error', stack: error.stack });
-				return;
-			}
+	testConnection: async function(connectionInfo, logger, cb){
+		try {
+			const connection = await this.connect(connectionInfo, logger);
+			await connection.testConnection();
+			this.disconnect(connectionInfo, () => {});
 
-			gremlinHelper.testConnection().then(() => {
-				this.disconnect(connectionInfo, () => {});
-				cb();
-			}).catch(error => {
-				this.disconnect(connectionInfo, () => {});
-				logger.log('error', prepareError(error));
-				cb({ message: 'Connection error', stack: error.stack });
-			})
-		});
+			cb();
+		} catch (error) {
+			this.disconnect(connectionInfo, () => {});
+			logger.log('error', prepareError(error));
+			cb({ message: 'Connection error', stack: error.stack });
+		}
 	},
 
-	getDatabases: function(connectionInfo, logger, cb){
-		cb();
+	getDbCollectionsNames: async function(connectionInfo, logger, cb, app) {
+		try {
+			const connection = await this.connect(connectionInfo, logger);
+			const query = queryHelper({
+				_: app.require('lodash'),
+				connection,
+			});
+			const labels = await query.getLabels();
+
+			cb(null, [{
+				dbName: 'g',
+				dbCollections: labels,
+			}]);
+		} catch (error) {
+			logger.log('error', prepareError(error));
+			cb(prepareError(error));
+		}
 	},
 
-	getDocumentKinds: function(connectionInfo, logger, cb) {
-		cb();
-	},
+	getDbCollectionsData: async function(data, logger, cb, app){
+		try {
+			const async = app.require('async');
+			const _ = app.require('lodash');
+			const connection = await this.connect(data, logger);
+			const query = queryHelper({ _, connection });
+	
+			const collections = data.collectionData.collections;
+			const dataBaseNames = data.collectionData.dataBaseNames;
+			const fieldInference = data.fieldInference;
+			const includeEmptyCollection = data.includeEmptyCollection;
+			const includeSystemCollection = data.includeSystemCollection;
+			const recordSamplingSettings = data.recordSamplingSettings;
+			let packages = {
+				labels: [],
+				relationships: []
+			};
 
-	getDbCollectionsNames: function(connectionInfo, logger, cb) {
-		let result = {
-			dbName: '',
-			dbCollections: ''
-		};
-		gremlinHelper.connect(connectionInfo).then(
-			() => gremlinHelper.getLabels(),
-			error => cb({ message: 'Connection error', stack: error.stack })
-		).then((labels) => {
-			result.dbCollections = labels;
-		}).then(() => {
-			return gremlinHelper.getDatabaseName();
-		}).then(dbName => {
-			result.dbName = dbName;
-			
-			cb(null, [result]);
-		}).catch((error) => {
-			cb(error || 'error');
-		});
-	},
-
-	getDbCollectionsData: function(data, logger, cb){
-		logger.clear();
-		logger.log('info', data, 'connectionInfo', data.hiddenKeys);
-
-		const collections = data.collectionData.collections;
-		const dataBaseNames = data.collectionData.dataBaseNames;
-		const fieldInference = data.fieldInference;
-		const includeEmptyCollection = data.includeEmptyCollection;
-		const includeSystemCollection = data.includeSystemCollection;
-		const recordSamplingSettings = data.recordSamplingSettings;
-		let packages = {
-			labels: [],
-			relationships: []
-		};
-
-		async.map(dataBaseNames, (dbName, next) => {
-			let labels = collections[dbName];
-			let metaData = {};
-
-			gremlinHelper.getFeatures().then(features => {
-				metaData.features = features;
-			}).then(() => gremlinHelper.getVariables()
-			).then(variables => {
-				metaData.variables = variables;
-			}).then(() => gremlinHelper.getIndexes()
-			).then(indexes => {
-				logger.progress({ message: `Indexes have retrieved successfully`, containerName: dbName, entityName: '' });
-				metaData.indexes = indexes;
-				return metaData;
-			}).then(metaData => {
-				return getNodesData(dbName, labels, logger, {
-					recordSamplingSettings,
-					fieldInference,
-					includeEmptyCollection,
-					indexes: metaData.indexes,
-					features: metaData.features,
-					variables: metaData.variables
+			await async.map(dataBaseNames, async (dbName) => {
+				let labels = collections[dbName];
+				const labelPackages = await getNodesData({
+					sampling: {
+						recordSamplingSettings,
+						fieldInference,
+						includeEmptyCollection,
+					},
+					query,
+					dbName,
+					labels,
+					logger,
+					async,
+					_,
 				});
-			}).then((labelPackages) => {
+
 				packages.labels.push(labelPackages);
-				labels = labelPackages.reduce((result, packageData) => result.concat([packageData.collectionName]), []);
-				return gremlinHelper.getRelationshipSchema(labels);
-			}).then((schema) => {
-				return schema.filter(data => {
+				labels = labelPackages.map(packageData => packageData.collectionName);
+
+				let relationshipSchema = await query.getRelationshipSchema(labels);
+				relationshipSchema = relationshipSchema.filter(data => {
 					return (labels.indexOf(data.start) !== -1 && labels.indexOf(data.end) !== -1);
 				});
-			}).then((schema) => {
-				return getRelationshipData(schema, dbName, recordSamplingSettings, fieldInference);
-			}).then((relationships) => {
+				const relationships = await getRelationshipData({
+					_,
+					async,
+					query,
+					dbName,
+					fieldInference,
+					recordSamplingSettings,
+					schema: relationshipSchema,
+				});
+				
 				packages.relationships.push(relationships);
-				next(null);
-			}).catch(error => {
-				logger.log('error', prepareError(error), "Error");
-				next(prepareError(error));
 			});
-		}, (err) => {
-			cb(err, packages.labels, {}, [].concat.apply([], packages.relationships));
-		});
+
+			cb(null, packages.labels, {}, [].concat.apply([], packages.relationships));
+		} catch (error) {
+			logger.log('error', prepareError(error));
+			cb(prepareError(error));
+		}
 	}
 };
 
@@ -132,7 +119,7 @@ const getCount = (count, recordSamplingSettings) => {
 	return size;
 };
 
-const isEmptyLabel = (documents) => {
+const isEmptyLabel = (_, documents) => {
 	if (!Array.isArray(documents)) {
 		return true;
 	}
@@ -140,7 +127,7 @@ const isEmptyLabel = (documents) => {
 	return documents.reduce((result, doc) => result && _.isEmpty(doc), true);
 };
 
-const getTemplate = (documents, rootTemplateArray = []) => {
+const getTemplate = (_, documents, rootTemplateArray = []) => {
 	const template = rootTemplateArray.reduce((template, key) => Object.assign({}, template, { [key]: {} }), {});
 
 	if (!_.isArray(documents)) {
@@ -150,52 +137,50 @@ const getTemplate = (documents, rootTemplateArray = []) => {
 	return documents.reduce((tpl, doc) => _.merge(tpl, doc), template);
 };
 
-const getNodesData = (dbName, labels, logger, data) => {
-	return new Promise((resolve, reject) => {
-		let packages = [];
-		async.map(labels, (labelName, nextLabel) => {
-			logger.progress({ message: 'Start sampling data', containerName: dbName, entityName: labelName });
-			gremlinHelper.getNodesCount(labelName)
-			.then(quantity => {
-				logger.progress({ message: 'Start getting data from graph', containerName: dbName, entityName: labelName });
-				const count = getCount(quantity, data.recordSamplingSettings);
+const getNodesData = async ({
+	_,
+	async,
+	dbName,
+	labels,
+	logger,
+	query,
+	sampling,
+}) => {
+	const packages = await async.map(labels, async (labelName) => {
+		logger.progress({ message: 'Start sampling data', containerName: dbName, entityName: labelName });
+		
+		const quantity = await query.getNodesCount(labelName);
+		
+		logger.progress({ message: 'Start getting data from graph', containerName: dbName, entityName: labelName });
+		const limit = getCount(quantity, sampling.recordSamplingSettings);
 
-				return gremlinHelper.getNodes(labelName, count).then(documents => (
-					{ limit: count, documents }
-				));
-			})
-			.then(({ documents, limit }) => gremlinHelper.getSchema('V', documents, labelName, limit))
-			.then(({ documents, schema, template }) => {
-				logger.progress({ message: `Data has successfully got`, containerName: dbName, entityName: labelName });
-				const packageData = getLabelPackage({
-					dbName, 
-					labelName, 
-					documents,
-					schema,
-					template,
-					includeEmptyCollection: data.includeEmptyCollection, 
-					fieldInference: data.fieldInference,
-					indexes: data.indexes,
-					features: data.features,
-					variables: data.variables
-				});
-				if (packageData) {
-					packages.push(packageData);
-				}
-				nextLabel(null);
-			}).catch(nextLabel);
-		}, (err) => {
-			if (err) {
-				reject(err);
-			} else {
-				const sortedPackages = sortPackagesByLabels(labels, packages);
-				resolve(sortedPackages);
-			}
+		const documents = await query.getNodes(labelName, limit);
+		const { schema, template } = await query.getSchema('V', documents, labelName, limit);
+
+
+		logger.progress({ message: `Data has successfully got`, containerName: dbName, entityName: labelName });
+		
+		const packageData = getLabelPackage({
+			includeEmptyCollection: sampling.includeEmptyCollection, 
+			fieldInference: sampling.fieldInference,
+			dbName, 
+			labelName, 
+			documents,
+			schema,
+			template,
+			_,
 		});
+
+		return packageData;
 	});
+			
+			
+	const sortedPackages = sortPackagesByLabels(_, labels, packages);
+
+	return sortedPackages;
 };
 
-const sortPackagesByLabels = (labels, packages) => {
+const sortPackagesByLabels = (_, labels, packages) => {
 	return [...packages].sort((a, b) => {
 		const indexA = _.indexOf(labels, a['collectionName']);
 		const indexB = _.indexOf(labels, b['collectionName']);
@@ -210,42 +195,41 @@ const sortPackagesByLabels = (labels, packages) => {
 	})
 }
 
-const getRelationshipData = (schema, dbName, recordSamplingSettings, fieldInference) => {
-	return new Promise((resolve, reject) => {
-		async.map(schema, (chain, nextChain) => {
-			gremlinHelper.getCountRelationshipsData(chain.start, chain.relationship, chain.end).then((quantity) => {
-				const count = getCount(quantity, recordSamplingSettings);
-				return gremlinHelper.getRelationshipData(chain.start, chain.relationship, chain.end, count);
-			})
-			.then(({ documents, schema, template }) => {
-				let packageData = {
-					dbName,
-					parentCollection: chain.start, 
-					relationshipName: chain.relationship, 
-					childCollection: chain.end,
-					documents,
-					validation: {
-						jsonSchema: schema
-					}
-				};
-
-				if (fieldInference.active === 'field') {
-					packageData.documentTemplate = getTemplate(documents, template);
-				}
-
-				nextChain(null, packageData);
-			}).catch(nextChain);
-		}, (err, packages) => {
-			if (err) {
-				reject(err);
-			} else {
-				resolve(packages);
+const getRelationshipData = ({
+	_,
+	async,
+	query,
+	schema,
+	dbName,
+	recordSamplingSettings,
+	fieldInference,
+}) => {
+	return async.map(schema, async (chain) => {
+		const quantity = await query.getCountRelationshipsData(chain.start, chain.relationship, chain.end);
+		const count = getCount(quantity, recordSamplingSettings);
+		const documents = await query.getRelationshipData(chain.start, chain.relationship, chain.end, count);
+		const { schema, template } = await query.getSchema('E', documents, chain.relationship, count);
+	
+		let packageData = {
+			dbName,
+			parentCollection: chain.start, 
+			relationshipName: chain.relationship, 
+			childCollection: chain.end,
+			documents,
+			validation: {
+				jsonSchema: schema
 			}
-		});
+		};
+
+		if (fieldInference.active === 'field') {
+			packageData.documentTemplate = getTemplate(_, documents, template);
+		}
+
+		return packageData;
 	});
 };
 
-const getLabelPackage = ({dbName, labelName, documents, template, schema, includeEmptyCollection, fieldInference, indexes, features, variables}) => {
+const getLabelPackage = ({_, dbName, labelName, documents, template, schema, includeEmptyCollection, fieldInference}) => {
 	let packageData = {
 		dbName,
 		collectionName: labelName,
@@ -256,18 +240,15 @@ const getLabelPackage = ({dbName, labelName, documents, template, schema, includ
 			jsonSchema: schema
 		},
 		bucketInfo: {
-			indexes,
-			features,
-			graphVariables: variables,
 			traversalSource: dbName
 		}
 	};
 
 	if (fieldInference.active === 'field') {
-		packageData.documentTemplate = getTemplate(documents, template);
+		packageData.documentTemplate = getTemplate(_, documents, template);
 	}
 
-	if (includeEmptyCollection || !isEmptyLabel(documents)) {
+	if (includeEmptyCollection || !isEmptyLabel(_, documents)) {
 		return packageData;
 	} else {
 		return null;

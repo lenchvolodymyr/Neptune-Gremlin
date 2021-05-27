@@ -7,13 +7,12 @@
 				"inputKeyword": "name",
 				"inputType": "text",
 				"inputPlaceholder": "Name"
-				
 			},
 			{
-				"inputLabel": "Host",
+				"inputLabel": "Neptune endpoint",
 				"inputKeyword": "host",
 				"inputType": "text",
-				"inputPlaceholder": "localhost",
+				"inputPlaceholder": "*.neptune.amazonaws.com",
 				"defaultValue": ""
 			},
 			{
@@ -22,96 +21,20 @@
 				"inputType": "numeric",
 				"inputPlaceholder": 8182,
 				"defaultValue": 8182
-			},
-			{
-				"inputLabel": "Traversal Source",
-				"inputKeyword": "traversalSource",
-				"inputType": "text",
-				"inputPlaceholder": "g",
-				"defaultValue": "g"
 			}
 		]
 	},
 	{
-		"tab": "Authentication",
-		"structure": [
-			{
-				"inputLabel": "User Name",
-				"inputKeyword": "username",
-				"inputType": "text",
-				"inputPlaceholder": "User Name"
-				
-			},
-			{
-				"inputLabel": "Password",
-				"inputKeyword": "password",
-				"inputType": "password",
-				"inputTooltip": "Password",
-				"isHiddenKey": true,
-				"defaultValue": ""
-			}
-		]
-	},
-	{
-		"tab": "SSL",
-		"structure": [
-			{
-				"inputLabel": "SSL",
-				"inputKeyword": "sslType",
-				"inputType": "select",
-				"options": [{
-					"value": "Off", 
-					"label": "Off"
-				}, {
-					"value": "TRUST_ALL_CERTIFICATES",
-					"label": "Unvalidated"
-				},{
-					"value": "TRUST_CUSTOM_CA_SIGNED_CERTIFICATES",
-					"label": "Server validation"
-
-				},{
-					"value": "TRUST_SERVER_CLIENT_CERTIFICATES",
-					"label": "Server and client validation"
-				},{
-					"value": "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES", 
-					"label": "SYSTEMCA"
-				}]
-			},
-			{
-				"inputLabel": "Certificate Authority",
-				"inputKeyword": "certAuthority",
-				"inputType": "file",
-				"inputPlaceholder": "Certificate Authority",
-				"extensions": ["pem", "crt", "key"],
-				"dependency": {
-					"key": "sslType",
-					"value": ["TRUST_CUSTOM_CA_SIGNED_CERTIFICATES", "TRUST_SERVER_CLIENT_CERTIFICATES"]
-				}
-			},
-			{
-				"inputLabel": "PFX",
-				"inputKeyword": "pfx",
-				"inputType": "file",
-				"inputPlaceholder": "PFX or PKCS12 encoded private key and certificate chain",
-				"extensions": ["pfx"],
-				"dependency": {
-					"key": "sslType",
-					"value": "TRUST_SERVER_CLIENT_CERTIFICATES"
-				}
-			}
-		]
-	},
-	{
-		"tab": "SSH",
+		"tab": "AWS EC2",
 		"structure": [
 			{
 				"inputLabel": "Use SSH Tunnel",
 				"inputKeyword": "ssh",
 				"inputType": "checkbox",
-				"defaultValue": false
+				"defaultValue": true
 			},
 			{
-				"inputLabel": "SSH Address",
+				"inputLabel": "Public address",
 				"inputKeyword": "ssh_host",
 				"inputType": "text",
 				"inputPlaceholder": "SSH Address",
@@ -132,31 +55,14 @@
 				}
 			},
 			{
-				"inputLabel": "SSH User Name",
+				"inputLabel": "User Name",
 				"inputKeyword": "ssh_user",
 				"inputType": "text",
-				"inputPlaceholder": "SSH User Name",
+				"inputPlaceholder": "ec2-user",
 				"disable": {
 					"key": "ssh",
 					"value": false
 				}
-			},
-			{
-				"inputLabel": "SSH Auth Method",
-				"inputKeyword": "ssh_method",
-				"inputType": "select",
-				"options": [{
-					"value": "privateKey", 
-					"label": "Private Key"
-				}, {
-					"value": "password",
-					"label": "Password"
-				}],
-				"disable": {
-					"key": "ssh",
-					"value": false
-				},
-				"defaultValue": "privateKey"
 			},
 			{
 				"inputLabel": "Private Key",
@@ -164,40 +70,6 @@
 				"inputType": "file",
 				"inputPlaceholder": "Private Key",
 				"extensions": ["*"],
-				"dependency": {
-					"key": "ssh_method",
-					"value": ["privateKey", ""]
-				},
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
-			},
-			{
-				"inputLabel": "Passphrase",
-				"inputKeyword": "ssh_key_passphrase",
-				"inputType": "password",
-				"inputPlaceholder": "Passphrase",
-				"isHiddenKey": true,
-				"dependency": {
-					"key": "ssh_method",
-					"value": ["privateKey", ""]
-				},
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
-			},
-			{
-				"inputLabel": "Client key password",
-				"inputKeyword": "ssh_password",
-				"inputType": "password",
-				"inputPlaceholder": "Password",
-				"isHiddenKey": true,
-				"dependency": {
-					"key": "ssh_method",
-					"value": ["password", ""]
-				},
 				"disable": {
 					"key": "ssh",
 					"value": false
