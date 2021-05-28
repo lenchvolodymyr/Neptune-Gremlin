@@ -1,6 +1,7 @@
 'use strict';
 
 const connectionHelper = require('./connectionHelper');
+const convertGraphSonToJsonSchema = require('./convertGraphsonToJsonSchema');
 const queryHelper = require('./queryHelper');
 
 module.exports = {
@@ -155,8 +156,9 @@ const getNodesData = async ({
 		const limit = getCount(quantity, sampling.recordSamplingSettings);
 
 		const documents = await query.getNodes(labelName, limit);
-		const { schema, template } = await query.getSchema('V', documents, labelName, limit);
-
+		const graphSons = await query.getSchema('V', labelName, limit);
+		const schema = getSchema(graphSons);
+		const template = [];
 
 		logger.progress({ message: `Data has successfully got`, containerName: dbName, entityName: labelName });
 		
@@ -208,8 +210,10 @@ const getRelationshipData = ({
 		const quantity = await query.getCountRelationshipsData(chain.start, chain.relationship, chain.end);
 		const count = getCount(quantity, recordSamplingSettings);
 		const documents = await query.getRelationshipData(chain.start, chain.relationship, chain.end, count);
-		const { schema, template } = await query.getSchema('E', documents, chain.relationship, count);
-	
+		const graphSons = await query.getSchema('E', chain.relationship, count);
+		const schema = getSchema(graphSons);
+		const template = [];
+		
 		let packageData = {
 			dbName,
 			parentCollection: chain.start, 
@@ -260,4 +264,20 @@ const prepareError = (error) => {
 		message: error.message,
 		stack: error.stack
 	};
+};
+
+const getSchema = (graphSons) => {
+	return graphSons.reduce((jsonSchema, graphSon) => {
+		const schema = convertGraphSonToJsonSchema(graphSon);
+
+		return {
+			...jsonSchema,
+			properties: {
+				...jsonSchema.properties,
+				...schema.properties,
+			},
+		};
+	}, {
+		properties: {},
+	});
 };

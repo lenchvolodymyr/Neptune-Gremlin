@@ -18,7 +18,9 @@ module.exports = ({ _, connection }) => {
 		},
 
 		async getSchema(gremlinElement, label, limit = 100) {
-			return { schema: {}, template: []};
+			const response = await connection.submitGraphson(`g.${gremlinElement}().hasLabel('${label}').limit(${limit}).valueMap()`);
+
+			return response.toArray();
 		},
 
 		async getRelationshipSchema(labels, limit = 100) {

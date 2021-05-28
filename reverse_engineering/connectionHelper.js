@@ -119,6 +119,10 @@ const createConnection = ({ client, graphSonClient, sshTunnel }) => {
 			return client.submit(query);
 		},
 
+		async submitGraphson(query) {
+			return graphSonClient.submit(query);
+		},
+
 		close() {
 			if (client) {
 				client.close();
