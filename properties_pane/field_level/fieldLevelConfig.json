@@ -122,6 +122,16 @@ making sure that you maintain a proper JSON format.
 			"schemaId",
 			"description",
 			"type",
+			{
+				"propertyName": "Property cardinality",
+				"propertyKeyword": "propCardinality",
+				"propertyTooltip": "Select from list of options",
+				"propertyType": "select",
+				"options": [
+					"single",
+					"set"
+				]
+			},
 			"required",
 			"primaryKey",
 			"minLength",
@@ -154,6 +164,16 @@ making sure that you maintain a proper JSON format.
 				"data": "options",
 				"valueType": "string"
 			},
+			{
+				"propertyName": "Property cardinality",
+				"propertyKeyword": "propCardinality",
+				"propertyTooltip": "Select from list of options",
+				"propertyType": "select",
+				"options": [
+					"single",
+					"set"
+				]
+			},
 			"required",
 			"unit",
 			"minimum",
@@ -173,6 +193,16 @@ making sure that you maintain a proper JSON format.
 			"schemaId",
 			"description",
 			"type",
+			{
+				"propertyName": "Property cardinality",
+				"propertyKeyword": "propCardinality",
+				"propertyTooltip": "Select from list of options",
+				"propertyType": "select",
+				"options": [
+					"single",
+					"set"
+				]
+			},
 			"required",
 			"dependencies",
 			"default",
@@ -187,6 +217,16 @@ making sure that you maintain a proper JSON format.
 			"refPath",
 			"description",
 			"type",
+			{
+				"propertyName": "Property cardinality",
+				"propertyKeyword": "propCardinality",
+				"propertyTooltip": "Select from list of options",
+				"propertyType": "select",
+				"options": [
+					"single",
+					"set"
+				]
+			},
 			"required",
 			"dependencies",
 			"pattern",
