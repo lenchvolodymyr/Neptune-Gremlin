@@ -119,6 +119,47 @@ making sure that you maintain a proper JSON format.
 		"lowerTab": "Details",
 		"structure": [
 			{
+				"propertyName": "Vertex key",
+				"propertyKeyword": "collectionName",
+				"dependency": {
+					"type": "not",
+					"values": {
+						"key": "entityType",
+						"value": "sub-node"
+					}
+				}
+			},
+			{
+				"propertyName": "Sub-vertex key",
+				"propertyKeyword": "collectionName",
+				"propertyType": "coupled",
+				"coupledBy": "namingConvention",
+				"onCoupleAction": "onCoupleCollectionBusinessName",
+    			"shouldValidate": true,
+				"dependency": {
+					"key": "entityType",
+					"value": "sub-node"
+				}
+			},
+			{
+				"propertyKeyword": "parentCollection",
+				"canBeUnlinked": false,
+				"disabledOnCondition":{
+					"type": "not",
+					"values": {
+						"key": "entityType",
+						"value": "sub-node"
+					}
+				},
+				"dependency":{
+					"type": "not",
+					"values": {
+						"key": "entityType",
+						"value": "sub-node"
+					}
+				}
+			},
+			{
 				"propertyName": "Comments",
 				"propertyKeyword": "comments",
 				"shouldValidate": false,

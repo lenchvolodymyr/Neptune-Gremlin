@@ -18,9 +18,12 @@
 		"duration": "0.5"
 	},
 	"collection": {
-		"collectionName": "New node label",
-		"collectionUsers": [],
-		"collation": {}
+		"collectionName": "New node label"
+	},
+	"nestedCollection": {
+		"collectionName": "New sub-vertex",
+		"entityType": "sub-node",
+		"relationName":"Subclass of"
 	},
 	"field": {
 		"name": "New property key",
