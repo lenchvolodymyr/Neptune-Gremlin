@@ -133,18 +133,18 @@ making sure that you maintain a proper JSON format.
 				"propertyTooltip": "Select from list of options",
 				"propertyType": "select",
 				"options": [
-					"US East (N. Virginia)",
-					"US East (Ohio)",
-					"US West (Oregon)",
-					"Europe (Ireland)",
-					"Europe (London)",
-					"Europe (Frankfurt)",
-					"Asia Pacific (Singapore)",
-					"Asia Pacific (Sydney)",
-					"Asia Pacific (Tokyo)",
-					"Asia Pacific (Mumbai)",
-					"Asia Pacific (Seoul)",
-					"EU (Stockholm)"
+					{"name": "US East (N. Virginia)", "value": "us-east-1"},
+					{"name": "US East (Ohio)", "value": "us-east-2"},
+					{"name": "US West (Oregon)", "value": "us-west-2"},
+					{"name": "Europe (Ireland)", "value": "eu-west-1"},
+					{"name": "Europe (London)", "value": "eu-west-2"},
+					{"name": "Europe (Frankfurt)", "value": "eu-central-1"},
+					{"name": "Asia Pacific (Singapore)", "value": "ap-southeast-1"},
+					{"name": "Asia Pacific (Sydney)", "value": "ap-southeast-2"},
+					{"name": "Asia Pacific (Tokyo)", "value": "ap-northeast-1"},
+					{"name": "Asia Pacific (Mumbai)", "value": "ap-south-1"},
+					{"name": "Asia Pacific (Seoul)", "value": "ap-northeast-2"},
+					{"name": "EU (Stockholm)", "value": "eu-north-1"}
 				]
 			},
 			{
@@ -205,7 +205,7 @@ making sure that you maintain a proper JSON format.
 				"propertyType": "checkbox"
 			},
 			{
-				"propertyName": "Failover",
+				"propertyName": "Promotion Tier",
 				"propertyKeyword": "PromotionTier",
 				"propertyTooltip": "Select from list of options",
 				"propertyType": "select",

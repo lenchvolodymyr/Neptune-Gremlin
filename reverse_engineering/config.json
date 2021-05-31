@@ -3,5 +3,7 @@
 		"NO_DATABASES": "There is no databases in this Neptune instance",
 		"WRONG_CONNECTION": "Cannot connect to Neptune instance"
 	},
-	"excludeDocKind": ["id"]
+	"excludeDocKind": ["id"],
+	"connectionList": [ "name", "dbClusterIdentifier", "ssh_user", "region" ],
+	"widestColumn": "dbClusterIdentifier"
 }

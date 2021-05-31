@@ -9,71 +9,151 @@
 				"inputPlaceholder": "Name"
 			},
 			{
-				"inputLabel": "Neptune endpoint",
-				"inputKeyword": "host",
-				"inputType": "text",
-				"inputPlaceholder": "*.neptune.amazonaws.com",
-				"defaultValue": ""
+				"inputLabel": "Cluster Identifier",
+				"inputKeyword": "dbClusterIdentifier",
+				"inputType": "text"
 			},
 			{
-				"inputLabel": "Port",
-				"inputKeyword": "port",
-				"inputType": "numeric",
-				"inputPlaceholder": 8182,
-				"defaultValue": 8182
-			}
-		]
-	},
-	{
-		"tab": "AWS EC2",
-		"structure": [
-			{
-				"inputLabel": "Use SSH Tunnel",
-				"inputKeyword": "ssh",
-				"inputType": "checkbox",
-				"defaultValue": true
+				"inputLabel": "Region",
+				"inputKeyword": "region",
+				"inputType": "select",
+				"options": [
+					{
+						"label": "None",
+						"value": ""
+					},
+					{
+						"label": "US East (N. Virginia) - us-east-1",
+						"value": "us-east-1"
+					},
+					{
+						"label": "US East (Ohio) - us-east-2",
+						"value": "us-east-2"
+					},
+					{
+						"label": "US West (N. California) - us-west-1",
+						"value": "us-west-1"
+					},
+					{
+						"label": "US West (Oregon) - us-west-2",
+						"value": "us-west-2"
+					},
+					{
+						"label": "Canada (Central) - ca-central-1",
+						"value": "ca-central-1"
+					},
+					{
+						"label": "Asia Pacific (Tokyo) - ap-northeast-1",
+						"value": "ap-northeast-1"
+					},
+					{
+						"label": "Asia Pacific (Seoul) - ap-northeast-2",
+						"value": "ap-northeast-2"
+					},
+					{
+						"label": "Asia Pacific (Osaka-Local) - ap-northeast-3",
+						"value": "ap-northeast-3"
+					},
+					{
+						"label": "Asia Pacific (Mumbai) - ap-south-1",
+						"value": "ap-south-1"
+					},
+					{
+						"label": "Asia Pacific (Singapore) - ap-southeast-1",
+						"value": "ap-southeast-1"
+					},
+					{
+						"label": "Asia Pacific (Sydney) - ap-southeast-2",
+						"value": "ap-southeast-2"
+					},
+					{
+						"label": "China (Beijing) - cn-north-1",
+						"value": "cn-north-1"
+					},
+					{
+						"label": "China (Ningxia) - cn-northwest-1",
+						"value": "cn-northwest-1"
+					},
+					{
+						"label": "EU (Frankfurt) - eu-central-1",
+						"value": "eu-central-1"
+					},
+					{
+						"label": "EU (Ireland) - eu-west-1",
+						"value": "eu-west-1"
+					},
+					{
+						"label": "EU (London) - eu-west-2",
+						"value": "eu-west-2"
+					},
+					{
+						"label": "EU (Paris) - eu-west-3",
+						"value": "eu-west-3"
+					},
+					{
+						"label": "EU (Stockholm) - eu-north-1",
+						"value": "eu-north-1"
+					},
+					{
+						"label": "South America (São Paulo) - sa-east-1",
+						"value": "sa-east-1"
+					},
+					{
+						"label": "South America (São Paulo) - us-gov-west-1",
+						"value": "us-gov-west-1"
+					}
+				]
 			},
 			{
-				"inputLabel": "Public address",
+				"inputLabel": "EC2 Public Address",
 				"inputKeyword": "ssh_host",
 				"inputType": "text",
-				"inputPlaceholder": "SSH Address",
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
+				"inputPlaceholder": "SSH Address"
 			},
 			{
-				"inputLabel": "Port",
+				"inputLabel": "SSH Port",
 				"inputKeyword": "ssh_port",
 				"inputType": "numeric",
-				"inputPlaceholder": "Port",
-				"defaultValue": 22,
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
+				"inputPlaceholder": "22",
+				"defaultValue": 22
 			},
 			{
 				"inputLabel": "User Name",
 				"inputKeyword": "ssh_user",
 				"inputType": "text",
-				"inputPlaceholder": "ec2-user",
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
+				"inputPlaceholder": "ec2-user"
 			},
 			{
 				"inputLabel": "Private Key",
 				"inputKeyword": "ssh_key_file",
 				"inputType": "file",
 				"inputPlaceholder": "Private Key",
-				"extensions": ["*"],
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
+				"extensions": ["*"]
+			}
+		]
+	},
+	{
+		"lowerTab": "Authentication",
+		"structure": [
+			{
+				"inputLabel": "Access Key ID",
+				"inputKeyword": "accessKeyId",
+				"inputType": "text",
+				"inputPlaceholder": "Access Key ID"
+			},
+			{
+				"inputLabel": "Secret Access Key",
+				"inputKeyword": "secretAccessKey",
+				"inputType": "password",
+				"inputPlaceholder": "Secret Access Key",
+				"isHiddenKey": true
+			},
+			{
+				"inputLabel": "Session token",
+				"inputKeyword": "sessionToken",
+				"inputType": "text",
+				"inputPlaceholder": "Optional session token",
+				"isHiddenKey": true
 			}
 		]
 	}

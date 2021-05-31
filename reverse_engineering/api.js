@@ -2,25 +2,31 @@
 
 const connectionHelper = require('./connectionHelper');
 const convertGraphSonToJsonSchema = require('./convertGraphsonToJsonSchema');
+const neptuneHelper = require('./neptuneHelper');
 const queryHelper = require('./queryHelper');
 
 module.exports = {
-	connect: function(connectionInfo, logger){
-		logger.clear();
-		logger.log('info', connectionInfo, 'connectionInfo', connectionInfo.hiddenKeys);
+	connect: function(connectionInfo, logger, app){
 
-		return connectionHelper.connect(connectionInfo);
+		return Promise.all([
+			connectionHelper.connect(connectionInfo),
+		]);
 	},
 
 	disconnect: function(connectionInfo, cb){
 		connectionHelper.close();
+		neptuneHelper.close();
 		cb();
 	},
 
-	testConnection: async function(connectionInfo, logger, cb){
+	testConnection: async function(connectionInfo, logger, cb, app) {
 		try {
-			const connection = await this.connect(connectionInfo, logger);
-			await connection.testConnection();
+			logger.clear();
+			logger.log('info', connectionInfo, 'connectionInfo', connectionInfo.hiddenKeys);
+
+			const neptuneInstance = await neptuneHelper.connect(app.require('aws-sdk'), connectionInfo);
+			await neptuneInstance.getBucketInfo();
+			
 			this.disconnect(connectionInfo, () => {});
 
 			cb();
@@ -33,7 +39,15 @@ module.exports = {
 
 	getDbCollectionsNames: async function(connectionInfo, logger, cb, app) {
 		try {
-			const connection = await this.connect(connectionInfo, logger);
+			logger.clear();
+			logger.log('info', connectionInfo, 'connectionInfo', connectionInfo.hiddenKeys);
+			const neptuneInstance = await neptuneHelper.connect(app.require('aws-sdk'), connectionInfo);
+			const clusterInfo = await neptuneInstance.getBucketInfo();
+			const connection = await connectionHelper.connect({
+				...connectionInfo,
+				host: clusterInfo.ReaderEndpoint,
+				port: clusterInfo.Port,
+			});
 			const query = queryHelper({
 				_: app.require('lodash'),
 				connection,
@@ -41,7 +55,7 @@ module.exports = {
 			const labels = await query.getLabels();
 
 			cb(null, [{
-				dbName: 'g',
+				dbName: clusterInfo.name,
 				dbCollections: labels,
 			}]);
 		} catch (error) {
@@ -52,9 +66,11 @@ module.exports = {
 
 	getDbCollectionsData: async function(data, logger, cb, app){
 		try {
+			logger.log('info', data, 'connectionInfo', data.hiddenKeys);
 			const async = app.require('async');
 			const _ = app.require('lodash');
-			const connection = await this.connect(data, logger);
+			const neptuneInstance = await neptuneHelper.connect();
+			const connection = await connectionHelper.connect();
 			const query = queryHelper({ _, connection });
 	
 			const collections = data.collectionData.collections;
@@ -67,6 +83,8 @@ module.exports = {
 				labels: [],
 				relationships: []
 			};
+
+			const bucketInfo = await neptuneInstance.getBucketInfo();
 
 			await async.map(dataBaseNames, async (dbName) => {
 				let labels = collections[dbName];
@@ -84,7 +102,7 @@ module.exports = {
 					_,
 				});
 
-				packages.labels.push(labelPackages);
+				packages.labels.push(labelPackages.map(pack => ({ ...pack, bucketInfo, })));
 				labels = labelPackages.map(packageData => packageData.collectionName);
 
 				let relationshipSchema = await query.getRelationshipSchema(labels);
@@ -101,7 +119,7 @@ module.exports = {
 					schema: relationshipSchema,
 				});
 				
-				packages.relationships.push(relationships);
+				packages.relationships.push(relationships.map(pack => ({ ...pack, bucketInfo, })));
 			});
 
 			cb(null, packages.labels, {}, [].concat.apply([], packages.relationships));
@@ -244,7 +262,6 @@ const getLabelPackage = ({_, dbName, labelName, documents, template, schema, inc
 			jsonSchema: schema
 		},
 		bucketInfo: {
-			traversalSource: dbName
 		}
 	};
 

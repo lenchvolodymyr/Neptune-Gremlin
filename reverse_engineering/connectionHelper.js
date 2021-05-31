@@ -2,15 +2,16 @@ const fs = require('fs');
 const ssh = require('tunnel-ssh');
 const gremlin = require('gremlin');
 
-let connection;
 let graphName = 'g';
+
+let connection = null;
 
 const getSshConfig = (info) => {
 	const config = {
 		ssh: info.ssh,
-		username: info.ssh_user,
+		username: info.ssh_user || 'ec2-user',
 		host: info.ssh_host,
-		port: info.ssh_port,
+		port: info.ssh_port || 22,
 		dstHost: info.host,
 		dstPort: info.port,
 		localHost: '127.0.0.1',
@@ -43,19 +44,14 @@ const connect = async info => {
 	if (connection) {
 		return connection;
 	}
-
-	let config = info;
 	let sshTunnel;
-	if (config.ssh) {
-		const result = await connectViaSsh(info);
+	const result = await connectViaSsh(info);
 
-		config = result.info;
-		sshTunnel = result.tunnel;
-	}
+	info = result.info;
+	sshTunnel = result.tunnel;
 	
 
-	const data = await connectToInstance(config);
-
+	const data = await connectToInstance(info);
 	connection = createConnection({ ...data, sshTunnel });
 
 	return connection;
@@ -64,7 +60,7 @@ const connect = async info => {
 const close = () => {
 	if (connection) {
 		connection.close();
-		connection = null;		
+		connection = null;
 	}
 };
 
@@ -106,13 +102,15 @@ const createPlainGraphSonReader = () => ({
 });
 
 const createConnection = ({ client, graphSonClient, sshTunnel }) => {
+	let closed = false;
+	
 	return {
 		testConnection() {
 			if (!client) {
 				return Promise.reject(new Error('Connection error'));
 			}
 		
-			return this.submit(`${graphName}.V().next()`);
+			return this.submit(`${graphName}.V()`);
 		},
 
 		async submit(query) {
@@ -123,16 +121,22 @@ const createConnection = ({ client, graphSonClient, sshTunnel }) => {
 			return graphSonClient.submit(query);
 		},
 
-		close() {
+		async close() {
 			if (client) {
-				client.close();
+				await client.close();
 			}
 			if (graphSonClient) {
-				graphSonClient.close();
+				await graphSonClient.close();
 			}
 			if (sshTunnel) {
-				sshTunnel.close();
+				await sshTunnel.close();
 			}
+
+			closed = true;
+		},
+
+		closed() {
+			return closed;
 		}
 	};
 };
