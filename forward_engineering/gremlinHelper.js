@@ -67,7 +67,7 @@ module.exports = (_) => {
 	const createProperty = (property, name, vertexData, features) => {
 		const type = property.type;
 
-		if (type === 'set') {
+		if (type === 'multi-property') {
 			return convertSet(property, name, vertexData, features);
 		}
 

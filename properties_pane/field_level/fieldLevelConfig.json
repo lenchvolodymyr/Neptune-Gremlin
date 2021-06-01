@@ -263,26 +263,13 @@ making sure that you maintain a proper JSON format.
 			"sample",
 			"comments"
 		],
-		"set": [
+		"null": "null",
+		"___2": [],
+		"multi-property": [
 			"name",
-			"code",
-			"sampleName",
 			"schemaId",
-			"refPath",
 			"description",
 			"type",
-			{
-				"propertyName": "Subtype",
-				"propertyKeyword": "subtype",
-				"shouldValidate": false,
-				"propertyType": "select",
-				"options": [
-					"set<str>",
-					"set<num>",
-					"set<bool>",
-					"set<date>"
-				]
-			},
 			"required",
 			"dependencies",
 			"minItems",
@@ -290,7 +277,6 @@ making sure that you maintain a proper JSON format.
 			"uniqueItems",
 			"additionalItems",
 			"comments"
-		],
-		"null": "null"
+		]
 	}
 }
