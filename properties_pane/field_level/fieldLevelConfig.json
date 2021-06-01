@@ -115,7 +115,7 @@ making sure that you maintain a proper JSON format.
 */
 
 {
-	"lowerTab": "JsonDetails",
+	"lowerTab": "Details",
 	"structure": {
 		"string": [
 			"name",
@@ -129,8 +129,14 @@ making sure that you maintain a proper JSON format.
 				"propertyType": "select",
 				"options": [
 					"single",
-					"list",
 					"set"
+				],
+				"dependency": [
+					{
+						"level": "parent",
+						"key": "collectionName",
+						"exist": true
+					}
 				]
 			},
 			"required",
@@ -143,110 +149,8 @@ making sure that you maintain a proper JSON format.
 			"enum",
 			"dependencies",
 			"sample",
-			{
-				"propertyName": "Meta-properties",
-				"propertyType": "group",
-				"propertyKeyword": "metaProperties",
-				"propertyTooltip": "",
-				"structure": [
-					{
-						"propertyName": "Name",
-						"propertyKeyword": "metaPropName",
-						"propertyType": "text"
-					},
-					{
-						"propertyName": "Type",
-						"propertyKeyword": "metaPropType",
-						"propertyType": "select",
-						"options": [
-							"string",
-							"integer",
-							"int64",
-							"double",
-							"float",
-							"boolean",
-							"date",
-							"timestamp",
-							"map",
-							"list",
-							"set"
-						],
-						"data": "options",
-						"valueType": "string"
-					}
-				]
-			},
 			"comments"
 		],
-		"uuid": [
-			"name",
-			"code",
-			"sampleName",
-			"schemaId",
-			"refPath",
-			"description",
-			"type",
-			{
-				"propertyName": "Property cardinality",
-				"propertyKeyword": "propCardinality",
-				"propertyTooltip": "Select from list of options",
-				"propertyType": "select",
-				"options": [
-					"single"
-				]
-			},
-			"required",
-			"primaryKey",
-			"dependencies",
-			"foreignCollection",
-			"foreignField",
-			"relationshipType",
-			"pattern",
-			"default",
-			"enum",
-			{
-				"propertyName": "Sample",
-				"propertyKeyword": "sample",
-				"shouldValidate": true,
-				"propertyTooltip": "",
-				"propertyType": "text",
-				"regex": "^[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}$"
-			},
-			{
-				"propertyName": "Meta-properties",
-				"propertyType": "group",
-				"propertyKeyword": "metaProperties",
-				"propertyTooltip": "",
-				"structure": [
-					{
-						"propertyName": "Name",
-						"propertyKeyword": "metaPropName",
-						"propertyType": "text"
-					},
-					{
-						"propertyName": "Type",
-						"propertyKeyword": "metaPropType",
-						"propertyType": "select",
-						"options": [
-							"string",
-							"integer",
-							"int64",
-							"double",
-							"float",
-							"boolean",
-							"date",
-							"timestamp",
-							"map",
-							"list",
-							"set"
-						],
-						"data": "options",
-						"valueType": "string"
-					}
-				]
-			},
-			"comments"
-		],   
 		"number": [
 			"name",
 			"schemaId",
@@ -257,7 +161,10 @@ making sure that you maintain a proper JSON format.
 				"propertyKeyword": "mode",
 				"propertyType": "select",
 				"options": [
+					"byte",
+					"short",
 					"integer",
+					"long",
 					"double",
 					"float"
 				],
@@ -271,8 +178,14 @@ making sure that you maintain a proper JSON format.
 				"propertyType": "select",
 				"options": [
 					"single",
-					"list",
 					"set"
+				],
+				"dependency": [
+					{
+						"level": "parent",
+						"key": "collectionName",
+						"exist": true
+					}
 				]
 			},
 			"required",
@@ -287,39 +200,6 @@ making sure that you maintain a proper JSON format.
 			"enum",
 			"dependencies",
 			"sample",
-			{
-				"propertyName": "Meta-properties",
-				"propertyType": "group",
-				"propertyKeyword": "metaProperties",
-				"propertyTooltip": "",
-				"structure": [
-					{
-						"propertyName": "Name",
-						"propertyKeyword": "metaPropName",
-						"propertyType": "text"
-					},
-					{
-						"propertyName": "Type",
-						"propertyKeyword": "metaPropType",
-						"propertyType": "select",
-						"options": [
-							"string",
-							"integer",
-							"int64",
-							"double",
-							"float",
-							"boolean",
-							"date",
-							"timestamp",
-							"map",
-							"list",
-							"set"
-						],
-						"data": "options",
-						"valueType": "string"
-					}
-				]
-			},
 			"comments"
 		],
 		"boolean": [
@@ -333,50 +213,23 @@ making sure that you maintain a proper JSON format.
 				"propertyTooltip": "Select from list of options",
 				"propertyType": "select",
 				"options": [
-					"single"
+					"single",
+					"set"
+				],
+				"dependency": [
+					{
+						"level": "parent",
+						"key": "collectionName",
+						"exist": true
+					}
 				]
 			},
 			"required",
 			"dependencies",
 			"default",
 			"sample",
-			{
-				"propertyName": "Meta-properties",
-				"propertyType": "group",
-				"propertyKeyword": "metaProperties",
-				"propertyTooltip": "",
-				"structure": [
-					{
-						"propertyName": "Name",
-						"propertyKeyword": "metaPropName",
-						"propertyType": "text"
-					},
-					{
-						"propertyName": "Type",
-						"propertyKeyword": "metaPropType",
-						"propertyType": "select",
-						"options": [
-							"string",
-							"integer",
-							"int64",
-							"double",
-							"float",
-							"boolean",
-							"date",
-							"timestamp",
-							"map",
-							"list",
-							"set"
-						],
-						"data": "options",
-						"valueType": "string"
-					}
-				]
-			},
 			"comments"
 		],
-		"null": "null",
-		"___0": [],
 		"date": [
 			"name",
 			"code",
@@ -385,10 +238,6 @@ making sure that you maintain a proper JSON format.
 			"refPath",
 			"description",
 			"type",
-			"required",
-			"dependencies",
-			"pattern",
-			"default",
 			{
 				"propertyName": "Property cardinality",
 				"propertyKeyword": "propCardinality",
@@ -396,64 +245,14 @@ making sure that you maintain a proper JSON format.
 				"propertyType": "select",
 				"options": [
 					"single",
-					"list",
 					"set"
-				]
-			},
-			"enum",
-			"sample",
-			{
-				"propertyName": "Meta-properties",
-				"propertyType": "group",
-				"propertyKeyword": "metaProperties",
-				"propertyTooltip": "",
-				"structure": [
+				],
+				"dependency": [
 					{
-						"propertyName": "Name",
-						"propertyKeyword": "metaPropName",
-						"propertyType": "text"
-					},
-					{
-						"propertyName": "Type",
-						"propertyKeyword": "metaPropType",
-						"propertyType": "select",
-						"options": [
-							"string",
-							"integer",
-							"int64",
-							"double",
-							"float",
-							"boolean",
-							"date",
-							"timestamp",
-							"map",
-							"list",
-							"set"
-						],
-						"data": "options",
-						"valueType": "string"
+						"level": "parent",
+						"key": "collectionName",
+						"exist": true
 					}
-				]
-			},
-			"comments"
-		],
-		"timestamp": [
-			"name",
-			"code",
-			"sampleName",
-			"schemaId",
-			"refPath",
-			"description",
-			"type",
-			{
-				"propertyName": "Property cardinality",
-				"propertyKeyword": "propCardinality",
-				"propertyTooltip": "Select from list of options",
-				"propertyType": "select",
-				"options": [
-					"single",
-					"list",
-					"set"
 				]
 			},
 			"required",
@@ -462,88 +261,11 @@ making sure that you maintain a proper JSON format.
 			"default",
 			"enum",
 			"sample",
-			{
-				"propertyName": "Meta-properties",
-				"propertyType": "group",
-				"propertyKeyword": "metaProperties",
-				"propertyTooltip": "",
-				"structure": [
-					{
-						"propertyName": "Name",
-						"propertyKeyword": "metaPropName",
-						"propertyType": "text"
-					},
-					{
-						"propertyName": "Type",
-						"propertyKeyword": "metaPropType",
-						"propertyType": "select",
-						"options": [
-							"string",
-							"integer",
-							"int64",
-							"double",
-							"float",
-							"boolean",
-							"date",
-							"timestamp",
-							"map",
-							"list",
-							"set"
-						],
-						"data": "options",
-						"valueType": "string"
-					}
-				]
-			},
 			"comments"
 		],
-		"___1": [],
-		"map": [
-			"name",
-			"schemaId",
-			"description",
-			"type",
-			"required",
-			"dependencies",
-			"minProperties",
-			"maxProperties",
-			"additionalProperties",
-			{
-				"propertyName": "Meta-properties",
-				"propertyType": "group",
-				"propertyKeyword": "metaProperties",
-				"propertyTooltip": "",
-				"structure": [
-					{
-						"propertyName": "Name",
-						"propertyKeyword": "metaPropName",
-						"propertyType": "text"
-					},
-					{
-						"propertyName": "Type",
-						"propertyKeyword": "metaPropType",
-						"propertyType": "select",
-						"options": [
-							"string",
-							"integer",
-							"int64",
-							"double",
-							"float",
-							"boolean",
-							"date",
-							"timestamp",
-							"map",
-							"list",
-							"set"
-						],
-						"data": "options",
-						"valueType": "string"
-					}
-				]
-			},
-			"comments"
-		],
-		"list": [
+		"null": "null",
+		"___2": [],
+		"multi-property": [
 			"name",
 			"schemaId",
 			"description",
@@ -554,88 +276,6 @@ making sure that you maintain a proper JSON format.
 			"maxItems",
 			"uniqueItems",
 			"additionalItems",
-			{
-				"propertyName": "Meta-properties",
-				"propertyType": "group",
-				"propertyKeyword": "metaProperties",
-				"propertyTooltip": "",
-				"structure": [
-					{
-						"propertyName": "Name",
-						"propertyKeyword": "metaPropName",
-						"propertyType": "text"
-					},
-					{
-						"propertyName": "Type",
-						"propertyKeyword": "metaPropType",
-						"propertyType": "select",
-						"options": [
-							"string",
-							"integer",
-							"int64",
-							"double",
-							"float",
-							"boolean",
-							"date",
-							"timestamp",
-							"map",
-							"list",
-							"set"
-						],
-						"data": "options",
-						"valueType": "string"
-					}
-				]
-			},
-			"comments"
-		],
-		"set": [
-			"name",
-			"code",
-			"sampleName",
-			"schemaId",
-			"refPath",
-			"description",
-			"type",
-			"required",
-			"dependencies",
-			"minItems",
-			"maxItems",
-			"uniqueItems",
-			"additionalItems",
-			{
-				"propertyName": "Meta-properties",
-				"propertyType": "group",
-				"propertyKeyword": "metaProperties",
-				"propertyTooltip": "",
-				"structure": [
-					{
-						"propertyName": "Name",
-						"propertyKeyword": "metaPropName",
-						"propertyType": "text"
-					},
-					{
-						"propertyName": "Type",
-						"propertyKeyword": "metaPropType",
-						"propertyType": "select",
-						"options": [
-							"string",
-							"integer",
-							"int64",
-							"double",
-							"float",
-							"boolean",
-							"date",
-							"timestamp",
-							"map",
-							"list",
-							"set"
-						],
-						"data": "options",
-						"valueType": "string"
-					}
-				]
-			},
 			"comments"
 		]
 	}

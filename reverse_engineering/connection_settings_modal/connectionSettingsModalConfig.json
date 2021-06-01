@@ -7,215 +7,153 @@
 				"inputKeyword": "name",
 				"inputType": "text",
 				"inputPlaceholder": "Name"
-				
 			},
 			{
-				"inputLabel": "Host",
-				"inputKeyword": "host",
-				"inputType": "text",
-				"inputPlaceholder": "localhost",
-				"defaultValue": ""
+				"inputLabel": "Cluster Identifier",
+				"inputKeyword": "dbClusterIdentifier",
+				"inputType": "text"
 			},
 			{
-				"inputLabel": "Port",
-				"inputKeyword": "port",
-				"inputType": "numeric",
-				"inputPlaceholder": "7687",
-				"defaultValue": ""
-			}
-		]
-	},
-	{
-		"tab": "Authentication",
-		"structure": [
-			{
-				"inputLabel": "User Name",
-				"inputKeyword": "username",
-				"inputType": "text",
-				"inputPlaceholder": "User Name"
-				
-			},
-			{
-				"inputLabel": "Password",
-				"inputKeyword": "password",
-				"inputType": "password",
-				"inputTooltip": "Password",
-				"isHiddenKey": true,
-				"defaultValue": ""
-			}
-		]
-	},
-	{
-		"tab": "SSL",
-		"structure": [
-			{
-				"inputLabel": "SSL",
-				"inputKeyword": "sslType",
+				"inputLabel": "Region",
+				"inputKeyword": "region",
 				"inputType": "select",
-				"options": [{
-					"value": "Off", 
-					"label": "Off"
-				}, {
-					"value": "TRUST_ALL_CERTIFICATES",
-					"label": "Unvalidated"
-				},{
-					"value": "TRUST_CUSTOM_CA_SIGNED_CERTIFICATES",
-					"label": "Server validation"
-
-				},{
-					"value": "TRUST_SERVER_CLIENT_CERTIFICATES",
-					"label": "Server and client validation"
-				},{
-					"value": "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES", 
-					"label": "SYSTEMCA"
-				}]
+				"options": [
+					{
+						"label": "None",
+						"value": ""
+					},
+					{
+						"label": "US East (N. Virginia) - us-east-1",
+						"value": "us-east-1"
+					},
+					{
+						"label": "US East (Ohio) - us-east-2",
+						"value": "us-east-2"
+					},
+					{
+						"label": "US West (N. California) - us-west-1",
+						"value": "us-west-1"
+					},
+					{
+						"label": "US West (Oregon) - us-west-2",
+						"value": "us-west-2"
+					},
+					{
+						"label": "Canada (Central) - ca-central-1",
+						"value": "ca-central-1"
+					},
+					{
+						"label": "Asia Pacific (Tokyo) - ap-northeast-1",
+						"value": "ap-northeast-1"
+					},
+					{
+						"label": "Asia Pacific (Seoul) - ap-northeast-2",
+						"value": "ap-northeast-2"
+					},
+					{
+						"label": "Asia Pacific (Osaka-Local) - ap-northeast-3",
+						"value": "ap-northeast-3"
+					},
+					{
+						"label": "Asia Pacific (Mumbai) - ap-south-1",
+						"value": "ap-south-1"
+					},
+					{
+						"label": "Asia Pacific (Singapore) - ap-southeast-1",
+						"value": "ap-southeast-1"
+					},
+					{
+						"label": "Asia Pacific (Sydney) - ap-southeast-2",
+						"value": "ap-southeast-2"
+					},
+					{
+						"label": "China (Beijing) - cn-north-1",
+						"value": "cn-north-1"
+					},
+					{
+						"label": "China (Ningxia) - cn-northwest-1",
+						"value": "cn-northwest-1"
+					},
+					{
+						"label": "EU (Frankfurt) - eu-central-1",
+						"value": "eu-central-1"
+					},
+					{
+						"label": "EU (Ireland) - eu-west-1",
+						"value": "eu-west-1"
+					},
+					{
+						"label": "EU (London) - eu-west-2",
+						"value": "eu-west-2"
+					},
+					{
+						"label": "EU (Paris) - eu-west-3",
+						"value": "eu-west-3"
+					},
+					{
+						"label": "EU (Stockholm) - eu-north-1",
+						"value": "eu-north-1"
+					},
+					{
+						"label": "South America (São Paulo) - sa-east-1",
+						"value": "sa-east-1"
+					},
+					{
+						"label": "South America (São Paulo) - us-gov-west-1",
+						"value": "us-gov-west-1"
+					}
+				]
 			},
 			{
-				"inputLabel": "Certificate Authority",
-				"inputKeyword": "certAuthority",
-				"inputType": "file",
-				"inputPlaceholder": "Certificate Authority",
-				"extensions": ["pem", "crt", "key"],
-				"dependency": {
-					"key": "sslType",
-					"value": ["TRUST_CUSTOM_CA_SIGNED_CERTIFICATES", "TRUST_SERVER_CLIENT_CERTIFICATES"]
-				}
-			},
-			{
-				"inputLabel": "Client Certificate",
-				"inputKeyword": "clientCert",
-				"inputType": "file",
-				"inputPlaceholder": "Client Certificate",
-				"extensions": ["pem", "crt", "key"],
-				"dependency": {
-					"key": "sslType",
-					"value": "TRUST_SERVER_CLIENT_CERTIFICATES"
-				}
-			},
-			{
-				"inputLabel": "Client Private Key",
-				"inputKeyword": "clientPrivateKey",
-				"inputType": "file",
-				"inputPlaceholder": "Client Private Key",
-				"extensions": ["pem", "crt", "key"],
-				"dependency": {
-					"key": "sslType",
-					"value": "TRUST_SERVER_CLIENT_CERTIFICATES"
-				}
-			},
-			{
-				"inputLabel": "Passphrase",
-				"inputKeyword": "passphrase",
-				"inputType": "password",
-				"inputPlaceholder": "Passphrase",
-				"dependency": {
-					"key": "sslType",
-					"value": "TRUST_SERVER_CLIENT_CERTIFICATES"
-				}
-			}
-		]
-	},
-	{
-		"tab": "SSH",
-		"structure": [
-			{
-				"inputLabel": "Use SSH Tunnel",
-				"inputKeyword": "ssh",
-				"inputType": "checkbox",
-				"defaultValue": false
-			},
-			{
-				"inputLabel": "SSH Address",
+				"inputLabel": "EC2 Public Address",
 				"inputKeyword": "ssh_host",
 				"inputType": "text",
-				"inputPlaceholder": "SSH Address",
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
+				"inputPlaceholder": "SSH Address"
 			},
 			{
-				"inputLabel": "Port",
+				"inputLabel": "SSH Port",
 				"inputKeyword": "ssh_port",
 				"inputType": "numeric",
-				"inputPlaceholder": "Port",
-				"defaultValue": 22,
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
+				"inputPlaceholder": "22",
+				"defaultValue": 22
 			},
 			{
-				"inputLabel": "SSH User Name",
+				"inputLabel": "User Name",
 				"inputKeyword": "ssh_user",
 				"inputType": "text",
-				"inputPlaceholder": "SSH User Name",
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
-			},
-			{
-				"inputLabel": "SSH Auth Method",
-				"inputKeyword": "ssh_method",
-				"inputType": "select",
-				"options": [{
-					"value": "privateKey", 
-					"label": "Private Key"
-				}, {
-					"value": "password",
-					"label": "Password"
-				}],
-				"disable": {
-					"key": "ssh",
-					"value": false
-				},
-				"defaultValue": "privateKey"
+				"inputPlaceholder": "ec2-user"
 			},
 			{
 				"inputLabel": "Private Key",
 				"inputKeyword": "ssh_key_file",
 				"inputType": "file",
 				"inputPlaceholder": "Private Key",
-				"extensions": ["*"],
-				"dependency": {
-					"key": "ssh_method",
-					"value": ["privateKey", ""]
-				},
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
+				"extensions": ["*"]
+			}
+		]
+	},
+	{
+		"lowerTab": "Authentication",
+		"structure": [
+			{
+				"inputLabel": "Access Key ID",
+				"inputKeyword": "accessKeyId",
+				"inputType": "text",
+				"inputPlaceholder": "Access Key ID"
 			},
 			{
-				"inputLabel": "Passphrase",
-				"inputKeyword": "ssh_key_passphrase",
+				"inputLabel": "Secret Access Key",
+				"inputKeyword": "secretAccessKey",
 				"inputType": "password",
-				"inputPlaceholder": "Passphrase",
-				"isHiddenKey": true,
-				"dependency": {
-					"key": "ssh_method",
-					"value": ["privateKey", ""]
-				},
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
+				"inputPlaceholder": "Secret Access Key",
+				"isHiddenKey": true
 			},
 			{
-				"inputLabel": "Client key password",
-				"inputKeyword": "ssh_password",
-				"inputType": "password",
-				"inputPlaceholder": "Password",
-				"isHiddenKey": true,
-				"dependency": {
-					"key": "ssh_method",
-					"value": ["password", ""]
-				},
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
+				"inputLabel": "Session token",
+				"inputKeyword": "sessionToken",
+				"inputType": "text",
+				"inputPlaceholder": "Optional session token",
+				"isHiddenKey": true
 			}
 		]
 	}

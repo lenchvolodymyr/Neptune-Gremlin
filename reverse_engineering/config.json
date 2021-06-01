@@ -1,7 +1,9 @@
 {
 	"errors": {
-		"NO_DATABASES": "There is no databases in this Neo4j instance",
-		"WRONG_CONNECTION": "Cannot connect to Neo4j instance"
+		"NO_DATABASES": "There is no databases in this Neptune instance",
+		"WRONG_CONNECTION": "Cannot connect to Neptune instance"
 	},
-	"excludeDocKind": ["id"]
+	"excludeDocKind": ["id"],
+	"connectionList": [ "name", "dbClusterIdentifier", "ssh_user", "region" ],
+	"widestColumn": "dbClusterIdentifier"
 }

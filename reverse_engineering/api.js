@@ -1,119 +1,132 @@
 'use strict';
 
-const async = require('async');
-const _ = require('lodash');
-const neo4j = require('./neo4jHelper');
-const snippetsPath = "../snippets/";
-
-const snippets = {
-	"Cartesian 3D": require(snippetsPath + "cartesian-3d.json"),
-	"Cartesian": require(snippetsPath + "cartesian.json"),
-	"WGS-84-3D": require(snippetsPath + "point-wgs-84-3d.json"),
-	"WGS-84": require(snippetsPath + "point-wgs-84.json")
-};
+const connectionHelper = require('./connectionHelper');
+const convertGraphSonToJsonSchema = require('./convertGraphsonToJsonSchema');
+const neptuneHelper = require('./neptuneHelper');
+const queryHelper = require('./queryHelper');
 
 module.exports = {
-	connect: function(connectionInfo, logger, cb){
-		logger.clear();
-		logger.log('info', connectionInfo, 'connectionInfo', connectionInfo.hiddenKeys);
-		neo4j.connect(connectionInfo).then(cb, cb);
+	connect: function(connectionInfo, logger, app){
+
+		return Promise.all([
+			connectionHelper.connect(connectionInfo),
+		]);
 	},
 
 	disconnect: function(connectionInfo, cb){
-		neo4j.close();
+		connectionHelper.close();
+		neptuneHelper.close();
 		cb();
 	},
 
-	testConnection: function(connectionInfo, logger, cb){
-		this.connect(connectionInfo, logger, (error) => {
-			this.disconnect(connectionInfo, () => {});
-			cb(error);
-		});
-	},
+	testConnection: async function(connectionInfo, logger, cb, app) {
+		try {
+			logger.clear();
+			logger.log('info', connectionInfo, 'connectionInfo', connectionInfo.hiddenKeys);
 
-	getDatabases: function(connectionInfo, logger, cb){
-		cb();
-	},
-
-	getDocumentKinds: function(connectionInfo, logger, cb) {
-		cb();
-	},
-
-	getDbCollectionsNames: function(connectionInfo, logger, cb) {
-		let result = {
-			dbName: '',
-			dbCollections: ''
-		};
-		neo4j.connect(connectionInfo).then(() => {
-			return neo4j.getLabels();
-		}).then((labels) => {
-			result.dbCollections = labels;
-		}).then(() => {
-			return neo4j.getDatabaseName();
-		}).then(dbName => {
-			result.dbName = dbName;
+			const neptuneInstance = await neptuneHelper.connect(app.require('aws-sdk'), connectionInfo);
+			await neptuneInstance.getBucketInfo();
 			
-			cb(null, [result]);
-		}).catch((error) => {
-			cb(error || 'error');
-		});
+			this.disconnect(connectionInfo, () => {});
+
+			cb();
+		} catch (error) {
+			this.disconnect(connectionInfo, () => {});
+			logger.log('error', prepareError(error));
+			cb({ message: 'Connection error', stack: error.stack });
+		}
 	},
 
-	getDbCollectionsData: function(data, logger, cb){
-		logger.clear();
-		logger.log('info', data, 'connectionInfo', data.hiddenKeys);
+	getDbCollectionsNames: async function(connectionInfo, logger, cb, app) {
+		try {
+			logger.clear();
+			logger.log('info', connectionInfo, 'connectionInfo', connectionInfo.hiddenKeys);
+			const neptuneInstance = await neptuneHelper.connect(app.require('aws-sdk'), connectionInfo);
+			const clusterInfo = await neptuneInstance.getBucketInfo();
+			const connection = await connectionHelper.connect({
+				...connectionInfo,
+				host: clusterInfo.ReaderEndpoint,
+				port: clusterInfo.Port,
+			});
+			const query = queryHelper({
+				_: app.require('lodash'),
+				connection,
+			});
+			const labels = await query.getLabels();
 
-		const collections = data.collectionData.collections;
-		const dataBaseNames = data.collectionData.dataBaseNames;
-		const fieldInference = data.fieldInference;
-		const includeEmptyCollection = data.includeEmptyCollection;
-		const includeSystemCollection = data.includeSystemCollection;
-		const recordSamplingSettings = data.recordSamplingSettings;
-		let packages = {
-			labels: [],
-			relationships: []
-		};
+			cb(null, [{
+				dbName: clusterInfo.name,
+				dbCollections: labels,
+			}]);
+		} catch (error) {
+			logger.log('error', prepareError(error));
+			cb(prepareError(error));
+		}
+	},
 
-		async.map(dataBaseNames, (dbName, next) => {
-			let labels = collections[dbName];
-			let metaData = {};
+	getDbCollectionsData: async function(data, logger, cb, app){
+		try {
+			logger.log('info', data, 'connectionInfo', data.hiddenKeys);
+			const async = app.require('async');
+			const _ = app.require('lodash');
+			const neptuneInstance = await neptuneHelper.connect();
+			const connection = await connectionHelper.connect();
+			const query = queryHelper({ _, connection });
+	
+			const collections = data.collectionData.collections;
+			const dataBaseNames = data.collectionData.dataBaseNames;
+			const fieldInference = data.fieldInference;
+			const includeEmptyCollection = data.includeEmptyCollection;
+			const includeSystemCollection = data.includeSystemCollection;
+			const recordSamplingSettings = data.recordSamplingSettings;
+			let packages = {
+				labels: [],
+				relationships: []
+			};
 
-			neo4j.getIndexes().then((indexes) => {
-				metaData.indexes = prepareIndexes(indexes);
+			const bucketInfo = await neptuneInstance.getBucketInfo();
 
-				return neo4j.getConstraints();
-			}).then((constraints) => {
-				metaData.constraints = prepareConstraints(constraints);
-
-				return metaData;
-			}).then(metaData => {
-				return getNodesData(dbName, labels, {
-					recordSamplingSettings,
-					fieldInference,
-					includeEmptyCollection,
-					indexes: metaData.indexes,
-					constraints: metaData.constraints
+			await async.map(dataBaseNames, async (dbName) => {
+				let labels = collections[dbName];
+				const labelPackages = await getNodesData({
+					sampling: {
+						recordSamplingSettings,
+						fieldInference,
+						includeEmptyCollection,
+					},
+					query,
+					dbName,
+					labels,
+					logger,
+					async,
+					_,
 				});
-			}).then((labelPackages) => {
-				packages.labels.push(labelPackages);
-				labels = labelPackages.reduce((result, packageData) => result.concat([packageData.collectionName]), []);
-				return neo4j.getSchema();
-			}).then((schema) => {
-				return schema.filter(data => {
+
+				packages.labels.push(labelPackages.map(pack => ({ ...pack, bucketInfo, })));
+				labels = labelPackages.map(packageData => packageData.collectionName);
+
+				let relationshipSchema = await query.getRelationshipSchema(labels);
+				relationshipSchema = relationshipSchema.filter(data => {
 					return (labels.indexOf(data.start) !== -1 && labels.indexOf(data.end) !== -1);
 				});
-			}).then((schema) => {
-				return getRelationshipData(schema, dbName, recordSamplingSettings, fieldInference, metaData.constraints);
-			}).then((relationships) => {
-				packages.relationships.push(relationships);
-				next(null);
-			}).catch(error => {
-				logger.log('error', prepareError(error), "Error");
-				next(prepareError(error));
+				const relationships = await getRelationshipData({
+					_,
+					async,
+					query,
+					dbName,
+					fieldInference,
+					recordSamplingSettings,
+					schema: relationshipSchema,
+				});
+				
+				packages.relationships.push(relationships.map(pack => ({ ...pack, bucketInfo, })));
 			});
-		}, (err) => {
-			cb(err, packages.labels, {}, [].concat.apply([], packages.relationships));
-		});
+
+			cb(null, packages.labels, {}, [].concat.apply([], packages.relationships));
+		} catch (error) {
+			logger.log('error', prepareError(error));
+			cb(prepareError(error));
+		}
 	}
 };
 
@@ -125,7 +138,7 @@ const getCount = (count, recordSamplingSettings) => {
 	return size;
 };
 
-const isEmptyLabel = (documents) => {
+const isEmptyLabel = (_, documents) => {
 	if (!Array.isArray(documents)) {
 		return true;
 	}
@@ -133,198 +146,135 @@ const isEmptyLabel = (documents) => {
 	return documents.reduce((result, doc) => result && _.isEmpty(doc), true);
 };
 
-const getTemplate = (documents) => {
-	return documents.reduce((tpl, doc) => _.merge(tpl, doc), {});
+const getTemplate = (_, documents, rootTemplateArray = []) => {
+	const template = rootTemplateArray.reduce((template, key) => Object.assign({}, template, { [key]: {} }), {});
+
+	if (!_.isArray(documents)) {
+		return template;
+	}
+
+	return documents.reduce((tpl, doc) => _.merge(tpl, doc), template);
 };
 
-const getNodesData = (dbName, labels, data) => {
-	return new Promise((resolve, reject) => {
-		let packages = [];
-		async.map(labels, (labelName, nextLabel) => {
-			neo4j.getNodesCount(labelName).then(quantity => {
-				const count = getCount(quantity, data.recordSamplingSettings);
+const getNodesData = async ({
+	_,
+	async,
+	dbName,
+	labels,
+	logger,
+	query,
+	sampling,
+}) => {
+	const packages = await async.map(labels, async (labelName) => {
+		logger.progress({ message: 'Start sampling data', containerName: dbName, entityName: labelName });
+		
+		const quantity = await query.getNodesCount(labelName);
+		
+		logger.progress({ message: 'Start getting data from graph', containerName: dbName, entityName: labelName });
+		const limit = getCount(quantity, sampling.recordSamplingSettings);
 
-				return neo4j.getNodes(labelName, count);
-			}).then((documents) => {
-				const packageData = getLabelPackage(
-					dbName, 
-					labelName, 
-					documents, 
-					data.includeEmptyCollection, 
-					data.fieldInference,
-					data.indexes[labelName],
-					data.constraints[labelName] 
-				);
-				if (packageData) {
-					packages.push(packageData);
-				}
-				nextLabel(null);
-			}).catch(nextLabel);
-		}, (err) => {
-			if (err) {
-				reject(err);
-			} else {
-				resolve(packages);
-			}
+		const documents = await query.getNodes(labelName, limit);
+		const graphSons = await query.getSchema('V', labelName, limit);
+		const schema = getSchema(graphSons);
+		const template = [];
+
+		logger.progress({ message: `Data has successfully got`, containerName: dbName, entityName: labelName });
+		
+		const packageData = getLabelPackage({
+			includeEmptyCollection: sampling.includeEmptyCollection, 
+			fieldInference: sampling.fieldInference,
+			dbName, 
+			labelName, 
+			documents,
+			schema,
+			template,
+			_,
 		});
+
+		return packageData;
+	});
+			
+			
+	const sortedPackages = sortPackagesByLabels(_, labels, packages);
+
+	return sortedPackages;
+};
+
+const sortPackagesByLabels = (_, labels, packages) => {
+	return [...packages].sort((a, b) => {
+		const indexA = _.indexOf(labels, a['collectionName']);
+		const indexB = _.indexOf(labels, b['collectionName']);
+		if (_.isUndefined(indexA)) {
+			return 1;
+		}
+		if (_.isUndefined(indexB)) {
+			return -1;
+		}
+
+		return indexA - indexB;
+	})
+}
+
+const getRelationshipData = ({
+	_,
+	async,
+	query,
+	schema,
+	dbName,
+	recordSamplingSettings,
+	fieldInference,
+}) => {
+	return async.map(schema, async (chain) => {
+		const quantity = await query.getCountRelationshipsData(chain.start, chain.relationship, chain.end);
+		const count = getCount(quantity, recordSamplingSettings);
+		const documents = await query.getRelationshipData(chain.start, chain.relationship, chain.end, count);
+		const graphSons = await query.getSchema('E', chain.relationship, count);
+		const schema = getSchema(graphSons);
+		const template = [];
+		
+		let packageData = {
+			dbName,
+			parentCollection: chain.start, 
+			relationshipName: chain.relationship, 
+			childCollection: chain.end,
+			documents,
+			validation: {
+				jsonSchema: schema
+			}
+		};
+
+		if (fieldInference.active === 'field') {
+			packageData.documentTemplate = getTemplate(_, documents, template);
+		}
+
+		return packageData;
 	});
 };
 
-const getRelationshipData = (schema, dbName, recordSamplingSettings, fieldInference, constraints) => {
-	return new Promise((resolve, reject) => {
-		async.map(schema, (chain, nextChain) => {
-			neo4j.getCountRelationshipsData(chain.start, chain.relationship, chain.end).then((quantity) => {
-				const count = getCount(quantity, recordSamplingSettings);
-				return neo4j.getRelationshipData(chain.start, chain.relationship, chain.end, count);
-			}).then((rawDocuments) => {
-				const documents = deserializeData(rawDocuments);
-				const separatedConstraints = separateConstraintsByType(constraints[chain.relationship] || []);
-				const jsonSchema = createSchemaByConstraints(documents, separatedConstraints);
-				let packageData = {
-					dbName,
-					parentCollection: chain.start, 
-					relationshipName: chain.relationship, 
-					childCollection: chain.end,
-					validation: {
-						jsonSchema
-					},
-					documents
-				};
-
-				if (fieldInference.active === 'field') {
-					packageData.documentTemplate = getTemplate(documents);
-				}
-
-				nextChain(null, packageData);
-			}).catch(nextChain);
-		}, (err, packages) => {
-			if (err) {
-				reject(err);
-			} else {
-				resolve(packages);
-			}
-		});
-	});
-};
-
-const getLabelPackage = (dbName, labelName, rawDocuments, includeEmptyCollection, fieldInference, indexes, constraints) => {
-	const documents = deserializeData(rawDocuments);
-	const separatedConstraints = separateConstraintsByType(constraints);
-	const jsonSchema = createSchemaByConstraints(documents, separatedConstraints);
+const getLabelPackage = ({_, dbName, labelName, documents, template, schema, includeEmptyCollection, fieldInference}) => {
 	let packageData = {
-		dbName: dbName,
+		dbName,
 		collectionName: labelName,
 		documents,
-		indexes: [],
-		bucketIndexes: [],
 		views: [],
-		validation: { jsonSchema },
 		emptyBucket: false,
-		bucketInfo: {},
-		entityLevel: {
-			constraint: separatedConstraints['NODE_KEY'],
-			index: indexes
+		validation: {
+			jsonSchema: schema
+		},
+		bucketInfo: {
 		}
 	};
 
 	if (fieldInference.active === 'field') {
-		packageData.documentTemplate = getTemplate(documents);
+		packageData.documentTemplate = getTemplate(_, documents, template);
 	}
 
-	if (includeEmptyCollection || !isEmptyLabel(documents)) {
+	if (includeEmptyCollection || !isEmptyLabel(_, documents)) {
 		return packageData;
 	} else {
 		return null;
 	}
 }; 
-
-const prepareIndexes = (indexes) => {
-	const hasProperties = /INDEX\s+ON\s+\:(.*)\((.*)\)/i;
-	let map = {};
-
-	indexes.forEach((index, i) => {
-		if (index.properties) {
-			index.properties = index.properties;
-		} else if (hasProperties.test(index.description)) {
-			let parsedDescription = index.description.match(hasProperties);
-			index.label = parsedDescription[1];
-			index.properties = parsedDescription[2].split(',').map(s => s.trim());
-		} else {
-			index.properties = [];
-		}
-
-		if (!map[index.label]) {
-			map[index.label] = [];
-		}
-
-		map[index.label].push({
-			name: `${index.label}.[${index.properties.join(',')}]`,
-			key: index.properties,
-			state: index.state,
-			type: index.type,
-			provider: JSON.stringify(index.provider, null , 4)
-		});
-	});
-
-	return map;
-};
-
-const prepareConstraints = (constraints) => {
-	const isUnique = /^constraint\s+on\s+\([\s\S]+\:([\S\s]+)\s*\)\s+assert\s+[\s\S]+\.([\s\S]+)\s+IS\s+UNIQUE/i;
-	const isNodeKey = /^constraint\s+on\s+\([\s\S]+\:\s*([\S\s]+)\s*\)\s+assert\s+(?:\(\s*([\s\S]+)\s*\)|[\s\S]+\.\s*([\S\s]+)\s*)\s+IS\s+NODE\s+KEY/i;
-	const isExists = /^constraint\s+on\s+\([\s\S]+\:([\s\S]+)\s*\)\s+assert\s+exists\([\s\S]+\.([\s\S]+)\s*\)/i;
-	let result = {};
-	const addToResult = (result, name, label, key, type, keyName = "key") => {
-		const labelName = label.trim();
-		if (!result[labelName]) {
-			result[labelName] = [];
-		}
-
-		result[labelName].push({ [keyName]: key, name, type });
-	};
-
-	constraints.forEach(c => {
-		const constraint = c.description.trim();
-
-		if (isUnique.test(constraint)) {
-			let data = constraint.match(isUnique);
-			let label = data[1];
-			let field = data[2];
-
-			addToResult(result, `Unique ${label}.${field}`, label, [field], 'UNIQUE');
-		} else if (isExists.test(constraint)) {
-			let data = constraint.match(isExists);
-			let label = data[1];
-			let field = data[2];
-
-			addToResult(result, `Required ${label}.${field}`, label, [field], 'EXISTS');
-		} else if (isNodeKey.test(constraint)) {
-			let data = constraint.match(isNodeKey);
-			let label = data[1];
-			let fields = [];
-
-			if (data[2]) {
-				fields = data[2].split(",").map(s => {
-					const field = s.trim().match(/[\s\S]+\.([\s\S]+)/);
-					
-					if (field) {
-						return field[1].trim();
-					} else {
-						return s;
-					}
-				});
-			} else if (data[3]) {
-				fields = [data[3].trim()];
-			}
-
-			if (fields.length) {
-				addToResult(result, `${label}`, label, fields, 'NODE_KEY', 'compositeNodeKey');							
-			}
-		}
-	});
-
-	return result;
-};
 
 const prepareError = (error) => {
 	return {
@@ -333,177 +283,18 @@ const prepareError = (error) => {
 	};
 };
 
-const deserializeData = (documents) => {
-	const deserializeObject = (value) => {
-		try {
-			return JSON.parse(value);
-		} catch(e) {
-			return value;
-		}
-	};
-	const handleField = (value) => {
-		if (typeof value === 'string') {
-			return deserializeObject(value);
-		} else if (Array.isArray(value)) {
-			return value.map(handleField);
-		} else {
-			return value;
-		}
-	};
-	const deserializator = (document) => {
-		let newDocument = {};
+const getSchema = (graphSons) => {
+	return graphSons.reduce((jsonSchema, graphSon) => {
+		const schema = convertGraphSonToJsonSchema(graphSon);
 
-		for (let field in document) {
-			newDocument[field] = handleField(document[field]);
-		}
-
-		return newDocument;
-	};
-
-	return Array.isArray(documents) ? documents.map(document => typeof document === 'object' ? deserializator(document) : {}) : [];
-};
-
-const createSchemaByConstraints = (documents, constraints) => {
-	let jsonSchema = constraints['EXISTS'].reduce((jsonSchema, constraint) => {
-		jsonSchema.required = jsonSchema.required.concat(constraint.key);
-		return jsonSchema;
-	}, { required: [], properties: {} });
-	jsonSchema = constraints['UNIQUE'].reduce((jsonSchema, constraint) => {
-		return constraint.key.reduce((jsonSchema, key) => {
-			if (!jsonSchema.properties[key]) {
-				jsonSchema.properties[key] = {};
-			}
-			jsonSchema.properties[key].unique = true;
-			return jsonSchema;
-		}, jsonSchema);
-	}, jsonSchema);
-
-	documents.forEach(document => setDocumentInSchema(document, jsonSchema));
-
-	return jsonSchema;
-};
-
-const setDocumentInSchema = (document, jsonSchema) => {
-	const has = Function.prototype.call.bind(Object.prototype.hasOwnProperty);
-
-	Object.keys(document).forEach(fieldName => {
-		const value = document[fieldName];
-
-		if (Array.isArray(value)) {
-			const items = getSchemaArrayItems(value);
-			if (items.length) {
-				if (!has(jsonSchema.properties || {}, fieldName)) {
-					jsonSchema.properties[fieldName] = {
-						type: "list",
-						items
-					};
-				}
-			}
-		} else if (Object(value) === value) {
-			if (!has(jsonSchema.properties || {}, fieldName)) {
-				if (value.srid) {
-					jsonSchema.properties[fieldName] = getSchemaSpatialType(value);
-				} else {
-					jsonSchema.properties[fieldName] = setDocumentInSchema(value, { properties: {} });
-				}
-			}
-			if (value.srid) {
-				delete document[fieldName];
-			}
-		} else if (typeof value === 'number') {
-			if (!has(jsonSchema.properties || {}, fieldName)) {
-				jsonSchema.properties[fieldName] = {
-					type: "number",
-					mode: (value % 1) == 0 ? 'integer' : 'float',
-					sample: value
-				};
-			}
-		}
+		return {
+			...jsonSchema,
+			properties: {
+				...jsonSchema.properties,
+				...schema.properties,
+			},
+		};
+	}, {
+		properties: {},
 	});
-
-	return jsonSchema;
-};
-
-const getSchemaArrayItems = (arrValue) => {
-	const items = [];
-	let ofs = 0;
-
-	[...arrValue].forEach((item, i) => {
-		if (_.isPlainObject(item) && item.srid) {
-			items.push(getSchemaSpatialType(item));
-			arrValue.splice(i - ofs, 1);
-			ofs++;
-		} else if (Array.isArray(item)) {
-			items.push({
-				type: "list",
-				items: getSchemaArrayItems(item)
-			});
-		} else if (typeof item === 'number') {
-			items.push({
-				type: "number",
-				mode: (item % 1) == 0 ? 'integer' : 'float',
-				sample: item
-			});
-			arrValue.splice(i - ofs, 1);
-			ofs++;
-		}
-	});
-
-	return items;
-};
-
-const getSchemaSpatialType = (value) => {
-	switch(Number(value.srid)) {
-		case 4326:
-			return {
-				type: "spatial",
-				mode: "point",
-				subType: "WGS-84",
-				properties: getSnippetPropertiesByName("WGS-84")
-			};
-		case 4979:
-			return {
-				type: "spatial",
-				mode: "point",
-				subType: "WGS-84-3D",
-				properties: getSnippetPropertiesByName("WGS-84-3D")
-			};
-		case 7203:
-			return {
-				type: "spatial",
-				mode: "point",
-				subType: "Cartesian",
-				properties: getSnippetPropertiesByName("Cartesian")
-			};
-		case 9157:
-			return {
-				type: "spatial",
-				mode: "point",
-				subType: "Cartesian 3D",
-				properties: getSnippetPropertiesByName("Cartesian 3D")
-			};
-	}
-};
-
-const getSnippetPropertiesByName = (name) => {
-	const snippet = snippets[name] || snippets["WGS-84"];
-	const properties = {};
-
-	snippet.properties.forEach(fieldSchema => {
-		properties[fieldSchema.name] = Object.assign({}, fieldSchema);
-		delete properties[fieldSchema.name].name;
-	});
-
-	return properties;
-};
-
-const separateConstraintsByType = (constraints = []) => {
-	return constraints.reduce((result, constraint) => {
-		constraint = Object.assign({}, constraint);
-		const type = constraint.type;
-		delete constraint.type;
-		result[type].push(constraint);
-
-		return result;
-	}, { 'UNIQUE': [], 'EXISTS': [], 'NODE_KEY': [] });
 };
