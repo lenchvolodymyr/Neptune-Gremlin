@@ -53,6 +53,17 @@ const groupPropertiesForMap = properties => {
 		});
 	}, {});
 };
+const getUniqItems = (items) => {
+	return items.reduce((result, item) => {
+		const exists = result.find(existed => existed.type === item.type && existed.mode === item.mode);
+
+		if (exists) {
+			return result;
+		}
+
+		return result.concat(item);
+	}, []);
+};
 
 const getItems = properties => properties.map(convertGraphSonToJsonSchema);
 
@@ -100,9 +111,23 @@ const convertGraphSonToJsonSchema = (graphSON) => {
 	if (rawType === 'g:List' || rawType === 'g:Set') {
 		const items = getItems(rawProperties);
 
+		if (items.length === 1) {
+			return items[0];
+		}
+
+		const propCardinality = items.length > 1 ? 'set' : 'single';
+		const uniqueItems = getUniqItems(items);
+		
+		if (uniqueItems.length === 1) {
+			return {
+				...uniqueItems,
+				propCardinality,
+			};
+		}
+
 		return {
-			...items[0],
-			propCardinality: items.length > 1 ? 'set' : 'single',
+			type: 'multi-property',
+			items: uniqueItems,
 		};
 	}
 
