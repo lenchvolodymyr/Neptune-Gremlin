@@ -25,7 +25,9 @@
                 "hasData": true
             },
             "enableForwardEngineering": true,
-            "enableReverseEngineering": true
+            "enableReverseEngineering": true,
+            "disableChoices": true,
+            "disableMultipleTypes": true
         }
     },
     "description": "Hackolade plugin for Amazon Neptune",

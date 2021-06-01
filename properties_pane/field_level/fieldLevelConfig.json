@@ -130,6 +130,13 @@ making sure that you maintain a proper JSON format.
 				"options": [
 					"single",
 					"set"
+				],
+				"dependency": [
+					{
+						"level": "parent",
+						"key": "collectionName",
+						"exist": true
+					}
 				]
 			},
 			"required",
@@ -172,6 +179,13 @@ making sure that you maintain a proper JSON format.
 				"options": [
 					"single",
 					"set"
+				],
+				"dependency": [
+					{
+						"level": "parent",
+						"key": "collectionName",
+						"exist": true
+					}
 				]
 			},
 			"required",
@@ -201,6 +215,13 @@ making sure that you maintain a proper JSON format.
 				"options": [
 					"single",
 					"set"
+				],
+				"dependency": [
+					{
+						"level": "parent",
+						"key": "collectionName",
+						"exist": true
+					}
 				]
 			},
 			"required",
@@ -225,6 +246,13 @@ making sure that you maintain a proper JSON format.
 				"options": [
 					"single",
 					"set"
+				],
+				"dependency": [
+					{
+						"level": "parent",
+						"key": "collectionName",
+						"exist": true
+					}
 				]
 			},
 			"required",
